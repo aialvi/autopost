@@ -39,6 +39,8 @@ export const platformConnections = pgTable(
       customerId?: string;
       appId?: string;
       appSecret?: string;
+      pixelId?: string;
+      testCode?: string;
     }>(),
     status: text("status", {
       enum: ["active", "expired", "error"],
