@@ -14,6 +14,8 @@ export * from "./ai";
 export * from "./attribution";
 // Notifications
 export * from "./notifications";
+// Payments & billing
+export * from "./payments";
 // System
 export * from "./system";
 // Extended relations
