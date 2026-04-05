@@ -64,9 +64,9 @@ const SelectTrigger = React.forwardRef<
 ));
 SelectTrigger.displayName = "SelectTrigger";
 
-const SelectValue = ({ placeholder }: { placeholder?: string }) => {
+const SelectValue = ({ placeholder, value }: { placeholder?: string; value?: string }) => {
   return (
-    <span className="native-select-value">{placeholder}</span>
+    <span className="native-select-value">{value || placeholder}</span>
   );
 };
 
@@ -76,14 +76,14 @@ const SelectContent = ({
   onValueChange,
 }: {
   children: React.ReactNode;
-  value: string;
-  onValueChange: (value: string) => void;
+  value?: string;
+  onValueChange?: (value: string) => void;
 }) => {
   return (
     <select
       className="absolute inset-0 opacity-0 cursor-pointer"
       value={value}
-      onChange={(e) => onValueChange(e.target.value)}
+      onChange={(e) => onValueChange?.(e.target.value)}
     >
       {children}
     </select>
@@ -91,13 +91,13 @@ const SelectContent = ({
 };
 
 const SelectItem = ({
-  value,
+  itemValue,
   children,
 }: {
-  value: string;
+  itemValue: string;
   children: React.ReactNode;
 }) => {
-  return <option value={value}>{children}</option>;
+  return <option value={itemValue}>{children}</option>;
 };
 
 export {
