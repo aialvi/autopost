@@ -89,9 +89,8 @@ export const ads = pgTable(
   "ads",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    adsetId: uuid("adset_id")
-      .notNull()
-      .references(() => adSets.id, { onDelete: "cascade" }),
+    campaignId: uuid("campaign_id").references(() => adCampaigns.id, { onDelete: "set null" }),
+    adsetId: uuid("adset_id").references(() => adSets.id, { onDelete: "set null" }),
     platformAdId: text("platform_ad_id").notNull(),
     name: text("name").notNull(),
     status: text("status").notNull(),
@@ -105,6 +104,7 @@ export const ads = pgTable(
       .defaultNow(),
   },
   (table) => [
+    index("ad_campaign_idx").on(table.campaignId),
     index("ad_adset_idx").on(table.adsetId),
     index("ad_platform_id_idx").on(table.platformAdId),
   ]

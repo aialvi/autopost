@@ -27,6 +27,28 @@ const Dialog = ({
   );
 };
 
+const DialogTrigger = ({
+  onClick,
+  children,
+  asChild,
+}: {
+  onClick?: () => void;
+  children: React.ReactNode;
+  asChild?: boolean;
+}) => {
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
+      onClick: (e: React.MouseEvent) => {
+        if ((children as any).props.onClick) {
+          (children as any).props.onClick(e);
+        }
+        if (onClick) onClick();
+      },
+    });
+  }
+  return <>{children}</>;
+};
+
 const DialogContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -87,6 +109,7 @@ DialogDescription.displayName = "DialogDescription";
 
 export {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,

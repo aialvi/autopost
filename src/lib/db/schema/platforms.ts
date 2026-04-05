@@ -33,7 +33,12 @@ export const platformConnections = pgTable(
       webhookSecret?: string;
       businessAccountId?: string;
       adAccountId?: string;
-      app_id?: string;
+      clientId?: string;
+      clientSecret?: string;
+      developerToken?: string;
+      customerId?: string;
+      appId?: string;
+      appSecret?: string;
     }>(),
     status: text("status", {
       enum: ["active", "expired", "error"],
