@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ShopifyConnection } from "@/components/dashboard/shopify-connection";
 import Link from "next/link";
 
 interface PageProps {
@@ -57,6 +58,8 @@ export default async function BrandSettingsPage({ params }: PageProps) {
           <Link href={`/dashboard/brands/${id}`}>Back</Link>
         </Button>
       </div>
+
+      <ShopifyConnection brandId={id} canEdit={canEdit} />
 
       <Card>
         <CardHeader>
