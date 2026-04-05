@@ -7,10 +7,12 @@ const Select = ({
   value,
   onValueChange,
   children,
+  disabled = false,
 }: {
   value: string;
   onValueChange: (value: string) => void;
   children: React.ReactNode;
+  disabled?: boolean;
 }) => {
   return (
     <div className="relative">
@@ -19,6 +21,7 @@ const Select = ({
           return React.cloneElement(child as any, {
             value,
             onValueChange,
+            disabled,
           });
         }
         return child;
@@ -32,8 +35,9 @@ const SelectTrigger = React.forwardRef<
   React.ButtonHTMLAttributes<HTMLButtonElement> & {
     value?: string;
     onValueChange?: (value: string) => void;
+    disabled?: boolean;
   }
->(({ className, children, value, onValueChange, ...props }, ref) => (
+>(({ className, children, value, onValueChange, disabled, ...props }, ref) => (
   <button
     ref={ref}
     className={cn(
@@ -41,6 +45,7 @@ const SelectTrigger = React.forwardRef<
       className
     )}
     onClick={() => {
+      if (disabled) return;
       // Open the select options
       const select = (ref as any).current?.parentElement?.querySelector("select");
       if (select) select.click();
@@ -74,16 +79,19 @@ const SelectContent = ({
   children,
   value,
   onValueChange,
+  disabled,
 }: {
   children: React.ReactNode;
   value?: string;
   onValueChange?: (value: string) => void;
+  disabled?: boolean;
 }) => {
   return (
     <select
       className="absolute inset-0 opacity-0 cursor-pointer"
       value={value}
       onChange={(e) => onValueChange?.(e.target.value)}
+      disabled={disabled}
     >
       {children}
     </select>

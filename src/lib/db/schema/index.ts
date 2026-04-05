@@ -12,6 +12,8 @@ export * from "./financial";
 export * from "./ai";
 // Attribution & CAPI
 export * from "./attribution";
+// Notifications
+export * from "./notifications";
 // System
 export * from "./system";
 // Extended relations
