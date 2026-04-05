@@ -1,0 +1,53 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm ci",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "@app-url",
+    "DATABASE_URL": "@database-url",
+    "AUTH_SECRET": "@auth-secret",
+    "NEXTAUTH_SECRET": "@auth-secret",
+    "NEXTAUTH_URL": "@app-url"
+  },
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_APP_URL": "@app-url"
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-summary",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-summary",
+      "schedule": "0 18 * * 1"
+    },
+    {
+      "path": "/api/cron/check-anomalies",
+      "schedule": "0 */2 * * *"
+    }
+  ]
+}

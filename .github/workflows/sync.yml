@@ -1,0 +1,70 @@
+name: Sync Ad Platforms
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+
+jobs:
+  sync-meta:
+    name: Sync Meta Ads
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync all Meta brands
+        run: node scripts/sync-platform.js meta
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  sync-shopify:
+    name: Sync Shopify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync all Shopify stores
+        run: node scripts/sync-platform.js shopify
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  sync-google:
+    name: Sync Google Ads
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync all Google Ads accounts
+        run: node scripts/sync-platform.js google
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
