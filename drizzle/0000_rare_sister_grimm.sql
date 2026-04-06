@@ -45,7 +45,8 @@ CREATE TABLE "ad_sets" (
 --> statement-breakpoint
 CREATE TABLE "ads" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"adset_id" uuid NOT NULL,
+	"campaign_id" uuid,
+	"adset_id" uuid,
 	"platform_ad_id" text NOT NULL,
 	"name" text NOT NULL,
 	"status" text NOT NULL,
@@ -271,6 +272,112 @@ CREATE TABLE "transaction_fees" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "notification_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"brand_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"type" varchar(50) NOT NULL,
+	"channel" varchar(50) DEFAULT 'telegram' NOT NULL,
+	"status" varchar(20) DEFAULT 'sent' NOT NULL,
+	"title" varchar(255),
+	"message" text NOT NULL,
+	"data" text,
+	"sent_at" timestamp DEFAULT now() NOT NULL,
+	"error" text
+);
+--> statement-breakpoint
+CREATE TABLE "notification_preferences" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"brand_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"telegram_chat_id" varchar(255),
+	"enabled" boolean DEFAULT true NOT NULL,
+	"alert_on_low_roas" boolean DEFAULT true NOT NULL,
+	"alert_on_spend_spike" boolean DEFAULT true NOT NULL,
+	"alert_on_revenue_drop" boolean DEFAULT true NOT NULL,
+	"alert_on_new_order" boolean DEFAULT false NOT NULL,
+	"alert_on_daily_summary" boolean DEFAULT true NOT NULL,
+	"alert_on_weekly_summary" boolean DEFAULT true NOT NULL,
+	"low_roas_threshold" varchar(10) DEFAULT '1.0' NOT NULL,
+	"spend_spike_threshold" varchar(10) DEFAULT '50' NOT NULL,
+	"revenue_drop_threshold" varchar(10) DEFAULT '20' NOT NULL,
+	"quiet_hours_start" varchar(5),
+	"quiet_hours_end" varchar(5),
+	"timezone" text DEFAULT 'UTC' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "invoices" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"brand_id" uuid NOT NULL,
+	"subscription_id" uuid,
+	"polar_invoice_id" varchar(255),
+	"polar_invoice_url" text,
+	"status" varchar(50) DEFAULT 'draft' NOT NULL,
+	"currency" varchar(3) DEFAULT 'USD' NOT NULL,
+	"subtotal" varchar(20) NOT NULL,
+	"tax" varchar(20) DEFAULT '0' NOT NULL,
+	"total" varchar(20) NOT NULL,
+	"due_date" timestamp,
+	"paid_at" timestamp,
+	"description" text,
+	"metadata" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "invoices_polar_invoice_id_unique" UNIQUE("polar_invoice_id")
+);
+--> statement-breakpoint
+CREATE TABLE "payment_methods" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"brand_id" uuid NOT NULL,
+	"polar_payment_method_id" varchar(255),
+	"type" varchar(50) DEFAULT 'card' NOT NULL,
+	"is_default" boolean DEFAULT false NOT NULL,
+	"last4" varchar(4),
+	"brand" varchar(20),
+	"expiry_month" varchar(2),
+	"expiry_year" varchar(4),
+	"status" varchar(50) DEFAULT 'active' NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "subscriptions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"brand_id" uuid NOT NULL,
+	"polar_subscription_id" varchar(255),
+	"polar_product_id" varchar(255),
+	"polar_customer_id" varchar(255),
+	"status" varchar(50) DEFAULT 'active' NOT NULL,
+	"tier" varchar(50) DEFAULT 'free' NOT NULL,
+	"currency" varchar(3) DEFAULT 'USD' NOT NULL,
+	"amount" varchar(20) NOT NULL,
+	"trial_start" timestamp,
+	"trial_end" timestamp,
+	"current_period_start" timestamp,
+	"current_period_end" timestamp,
+	"cancel_at_period_end" boolean DEFAULT false NOT NULL,
+	"canceled_at" timestamp,
+	"metadata" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "usage_records" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"brand_id" uuid NOT NULL,
+	"subscription_id" uuid,
+	"metric" varchar(100) NOT NULL,
+	"quantity" varchar(20) NOT NULL,
+	"unit" varchar(50),
+	"period_start" timestamp NOT NULL,
+	"period_end" timestamp NOT NULL,
+	"description" text,
+	"metadata" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "platform_sync_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"brand_id" uuid NOT NULL,
@@ -300,7 +407,8 @@ ALTER TABLE "ad_data_snapshots" ADD CONSTRAINT "ad_data_snapshots_campaign_id_ad
 ALTER TABLE "ad_data_snapshots" ADD CONSTRAINT "ad_data_snapshots_adset_id_ad_sets_id_fk" FOREIGN KEY ("adset_id") REFERENCES "public"."ad_sets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ad_data_snapshots" ADD CONSTRAINT "ad_data_snapshots_ad_id_ads_id_fk" FOREIGN KEY ("ad_id") REFERENCES "public"."ads"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ad_sets" ADD CONSTRAINT "ad_sets_campaign_id_ad_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."ad_campaigns"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "ads" ADD CONSTRAINT "ads_adset_id_ad_sets_id_fk" FOREIGN KEY ("adset_id") REFERENCES "public"."ad_sets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ads" ADD CONSTRAINT "ads_campaign_id_ad_campaigns_id_fk" FOREIGN KEY ("campaign_id") REFERENCES "public"."ad_campaigns"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ads" ADD CONSTRAINT "ads_adset_id_ad_sets_id_fk" FOREIGN KEY ("adset_id") REFERENCES "public"."ad_sets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ai_analyses" ADD CONSTRAINT "ai_analyses_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ai_recommendations" ADD CONSTRAINT "ai_recommendations_analysis_id_ai_analyses_id_fk" FOREIGN KEY ("analysis_id") REFERENCES "public"."ai_analyses"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ai_recommendations" ADD CONSTRAINT "ai_recommendations_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -319,6 +427,12 @@ ALTER TABLE "shopify_orders" ADD CONSTRAINT "shopify_orders_brand_id_brands_id_f
 ALTER TABLE "shopify_products" ADD CONSTRAINT "shopify_products_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "shopify_variants" ADD CONSTRAINT "shopify_variants_product_id_shopify_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."shopify_products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transaction_fees" ADD CONSTRAINT "transaction_fees_order_id_shopify_orders_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."shopify_orders"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_subscription_id_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "public"."subscriptions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_methods" ADD CONSTRAINT "payment_methods_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "usage_records" ADD CONSTRAINT "usage_records_subscription_id_subscriptions_id_fk" FOREIGN KEY ("subscription_id") REFERENCES "public"."subscriptions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "platform_sync_logs" ADD CONSTRAINT "platform_sync_logs_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "telegram_configs" ADD CONSTRAINT "telegram_configs_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "ad_campaign_brand_idx" ON "ad_campaigns" USING btree ("brand_id");--> statement-breakpoint
@@ -329,6 +443,7 @@ CREATE INDEX "ad_snapshot_ad_idx" ON "ad_data_snapshots" USING btree ("ad_id");-
 CREATE INDEX "ad_snapshot_date_idx" ON "ad_data_snapshots" USING btree ("date");--> statement-breakpoint
 CREATE INDEX "ad_set_campaign_idx" ON "ad_sets" USING btree ("campaign_id");--> statement-breakpoint
 CREATE INDEX "ad_set_platform_id_idx" ON "ad_sets" USING btree ("platform_adset_id");--> statement-breakpoint
+CREATE INDEX "ad_campaign_idx" ON "ads" USING btree ("campaign_id");--> statement-breakpoint
 CREATE INDEX "ad_adset_idx" ON "ads" USING btree ("adset_id");--> statement-breakpoint
 CREATE INDEX "ad_platform_id_idx" ON "ads" USING btree ("platform_ad_id");--> statement-breakpoint
 CREATE INDEX "ai_analysis_brand_idx" ON "ai_analyses" USING btree ("brand_id");--> statement-breakpoint
@@ -365,6 +480,25 @@ CREATE INDEX "shopify_product_brand_idx" ON "shopify_products" USING btree ("bra
 CREATE INDEX "shopify_variant_product_idx" ON "shopify_variants" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "shopify_variant_id_idx" ON "shopify_variants" USING btree ("shopify_variant_id");--> statement-breakpoint
 CREATE INDEX "transaction_fee_order_idx" ON "transaction_fees" USING btree ("order_id");--> statement-breakpoint
+CREATE INDEX "notif_log_brand_idx" ON "notification_logs" USING btree ("brand_id");--> statement-breakpoint
+CREATE INDEX "notif_log_user_idx" ON "notification_logs" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "notif_log_type_idx" ON "notification_logs" USING btree ("type");--> statement-breakpoint
+CREATE INDEX "notif_log_sent_idx" ON "notification_logs" USING btree ("sent_at");--> statement-breakpoint
+CREATE INDEX "notif_pref_brand_idx" ON "notification_preferences" USING btree ("brand_id");--> statement-breakpoint
+CREATE INDEX "notif_pref_user_idx" ON "notification_preferences" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "invoice_brand_idx" ON "invoices" USING btree ("brand_id");--> statement-breakpoint
+CREATE INDEX "invoice_subscription_idx" ON "invoices" USING btree ("subscription_id");--> statement-breakpoint
+CREATE INDEX "invoice_polar_id_idx" ON "invoices" USING btree ("polar_invoice_id");--> statement-breakpoint
+CREATE INDEX "invoice_status_idx" ON "invoices" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "payment_method_brand_idx" ON "payment_methods" USING btree ("brand_id");--> statement-breakpoint
+CREATE INDEX "payment_method_polar_id_idx" ON "payment_methods" USING btree ("polar_payment_method_id");--> statement-breakpoint
+CREATE INDEX "subscription_brand_idx" ON "subscriptions" USING btree ("brand_id");--> statement-breakpoint
+CREATE INDEX "subscription_polar_id_idx" ON "subscriptions" USING btree ("polar_subscription_id");--> statement-breakpoint
+CREATE INDEX "subscription_status_idx" ON "subscriptions" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "usage_record_brand_idx" ON "usage_records" USING btree ("brand_id");--> statement-breakpoint
+CREATE INDEX "usage_record_subscription_idx" ON "usage_records" USING btree ("subscription_id");--> statement-breakpoint
+CREATE INDEX "usage_record_period_idx" ON "usage_records" USING btree ("period_start","period_end");--> statement-breakpoint
+CREATE INDEX "usage_record_metric_idx" ON "usage_records" USING btree ("metric");--> statement-breakpoint
 CREATE INDEX "sync_log_brand_idx" ON "platform_sync_logs" USING btree ("brand_id");--> statement-breakpoint
 CREATE INDEX "sync_log_platform_idx" ON "platform_sync_logs" USING btree ("platform");--> statement-breakpoint
 CREATE INDEX "sync_log_status_idx" ON "platform_sync_logs" USING btree ("status");--> statement-breakpoint

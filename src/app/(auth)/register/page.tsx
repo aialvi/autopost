@@ -1,5 +1,3 @@
-"use server";
-
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
