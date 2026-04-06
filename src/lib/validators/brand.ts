@@ -2,11 +2,6 @@ import { z } from "zod";
 
 export const createBrandSchema = z.object({
   name: z.string().min(2, "Brand name must be at least 2 characters").max(50),
-  slug: z
-    .string()
-    .min(2, "Slug must be at least 2 characters")
-    .max(50)
-    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
   timezone: z.string().default("UTC"),
   currency: z.string().default("USD"),
   defaultCogsPercentage: z.string().default("0.00"),
