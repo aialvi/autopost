@@ -1,3 +1,7 @@
+import { db } from "@/lib/db";
+import { subscriptions } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasBrandAccess } from "@/lib/auth";
@@ -15,6 +19,8 @@ export async function GET(
   { params }: RouteContext
 ) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -46,6 +52,8 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -53,7 +61,7 @@ export async function DELETE(
   const { id: brandId } = await params;
 
   const role = await hasBrandAccess(session.user.id, brandId);
-  if (role === "viewer") {
+  if (!role || role === "viewer") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -68,7 +76,9 @@ export async function DELETE(
       );
     }
 
-    const success = await cancelSubscription(subscriptionId);
+    const owned = await db.query.subscriptions.findFirst({ where: and(eq(subscriptions.id, subscriptionId), eq(subscriptions.brandId, brandId)) });
+    if (!owned) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const success = await cancelSubscription(owned.id);
 
     if (success) {
       return NextResponse.json({ success: true });

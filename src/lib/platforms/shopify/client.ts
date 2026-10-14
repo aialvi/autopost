@@ -77,8 +77,10 @@ export class ShopifyClient {
   private apiVersion: string;
 
   constructor(config: ShopifyConfig) {
-    this.config = config;
-    this.apiVersion = config.apiVersion || "2024-01";
+    const domain = config.storeDomain.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain)) throw new Error("Use your store’s .myshopify.com domain");
+    this.config = { ...config, storeDomain: domain };
+    this.apiVersion = config.apiVersion || process.env.SHOPIFY_API_VERSION || "2026-10";
   }
 
   private get baseUrl(): string {
@@ -92,6 +94,7 @@ export class ShopifyClient {
     const url = `${this.baseUrl}${endpoint}`;
     const response = await fetch(url, {
       ...options,
+      signal: AbortSignal.timeout(20000),
       headers: {
         "X-Shopify-Access-Token": this.config.accessToken,
         "Content-Type": "application/json",
@@ -115,10 +118,15 @@ export class ShopifyClient {
     if (params?.since_id) searchParams.set("since_id", params.since_id.toString());
     searchParams.set("status", "active");
 
-    const response = await this.request<{ products: ShopifyProduct[] }>(
-      `/products.json?${searchParams.toString()}`
-    );
-    return response.products;
+    const products: ShopifyProduct[] = [];
+    let more = true;
+    while (more) {
+      const response = await this.request<{ products: ShopifyProduct[] }>(`/products.json?${searchParams}`);
+      products.push(...response.products);
+      more = response.products.length === (params?.limit ?? 50);
+      if (more) searchParams.set("since_id", String(response.products[response.products.length - 1].id));
+    }
+    return products;
   }
 
   async getProduct(productId: bigint) {
@@ -142,10 +150,24 @@ export class ShopifyClient {
     if (params?.processed_at_min)
       searchParams.set("processed_at_min", params.processed_at_min);
 
-    const response = await this.request<{ orders: ShopifyOrder[] }>(
-      `/orders.json?${searchParams.toString()}`
-    );
-    return response.orders;
+    const orders: ShopifyOrder[] = [];
+    let more = true;
+    while (more) {
+      const response = await this.request<{ orders: ShopifyOrder[] }>(`/orders.json?${searchParams}`);
+      orders.push(...response.orders);
+      more = response.orders.length === (params?.limit ?? 50);
+      if (more) searchParams.set("since_id", String(response.orders[response.orders.length - 1].id));
+    }
+    return orders;
+  }
+
+  async getInventoryItems(ids: (bigint | number)[]): Promise<Array<{ id: number; cost: string | null }>> {
+    const result: Array<{ id: number; cost: string | null }> = [];
+    for (let index = 0; index < ids.length; index += 50) {
+      const response = await this.request<{ inventory_items: Array<{ id: number; cost: string | null }> }>(`/inventory_items.json?ids=${ids.slice(index, index + 50).map(String).join(",")}`);
+      result.push(...response.inventory_items);
+    }
+    return result;
   }
 
   async getOrder(orderId: bigint) {
@@ -172,7 +194,9 @@ export function verifyWebhookHMAC(
       .createHmac("sha256", webhookSecret)
       .update(body)
       .digest("base64");
-    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(digest));
+    const received = Buffer.from(hmac);
+    const expected = Buffer.from(digest);
+    return received.length === expected.length && crypto.timingSafeEqual(received, expected);
 }
 
 export function calculateTransactionFee(
@@ -197,9 +221,9 @@ export function calculateTransactionFee(
   };
 }
 
-export function hashEmail(email: string): string {
+export function hashEmail(email: string | null | undefined): string {
   return crypto
     .createHash("sha256")
-    .update(email.trim().toLowerCase())
+    .update((email ?? "").trim().toLowerCase())
     .digest("hex");
 }

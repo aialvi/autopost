@@ -1,3 +1,5 @@
+import { protectSecret, safeConnection } from "@/lib/platforms/connection-secrets";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { platformConnections } from "@/lib/db/schema";
@@ -12,6 +14,8 @@ interface RouteContext {
 
 export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -36,8 +40,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     }
 
     // Don't expose the full access token
-    const { accessToken, ...safeConnection } = connection;
-    return NextResponse.json({ connected: true, connection: safeConnection });
+    return NextResponse.json({ connected: true, connection: safeConnection(connection) });
   } catch (error) {
     console.error("Error fetching Shopify connection:", error);
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
@@ -46,6 +49,8 @@ export async function GET(req: Request, { params }: RouteContext) {
 
 export async function POST(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -87,7 +92,7 @@ export async function POST(req: Request, { params }: RouteContext) {
         .update(platformConnections)
         .set({
           accountId: storeDomain,
-          accessToken,
+          accessToken: protectSecret(accessToken),
           status: "active",
           lastSyncedAt: new Date(),
           updatedAt: new Date(),
@@ -100,7 +105,7 @@ export async function POST(req: Request, { params }: RouteContext) {
         brandId,
         platform: "shopify",
         accountId: storeDomain,
-        accessToken,
+        accessToken: protectSecret(accessToken),
         status: "active",
         lastSyncedAt: new Date(),
         metadata: { myshopifyDomain: storeDomain },
@@ -116,6 +121,8 @@ export async function POST(req: Request, { params }: RouteContext) {
 
 export async function DELETE(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {

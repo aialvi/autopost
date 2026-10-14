@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActiveBrandId } from "@/lib/demo/active-brand";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getUserBrands } from "@/lib/actions";
@@ -6,8 +6,7 @@ import { AttributionBreakdown } from "@/components/attribution/attribution-break
 import { CAPIEventsList } from "@/components/capi/capi-events-list";
 
 export default async function AttributionPage() {
-  const cookieStore = await cookies();
-  const brandId = cookieStore.get("currentBrandId")?.value;
+  const brandId = await getActiveBrandId();
 
   if (!brandId) {
     redirect("/dashboard");

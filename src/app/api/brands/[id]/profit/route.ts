@@ -1,3 +1,5 @@
+import { DateRangeError, getDates } from "@/lib/profit/metrics";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasBrandAccess } from "@/lib/auth";
@@ -17,6 +19,8 @@ interface RouteContext {
 
 export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -45,6 +49,7 @@ export async function GET(req: Request, { params }: RouteContext) {
       endDate: endDate || defaultEndDate.toISOString().split("T")[0],
     };
 
+    getDates(dateRange);
     let data;
 
     switch (granularity) {
@@ -73,6 +78,7 @@ export async function GET(req: Request, { params }: RouteContext) {
 
     return NextResponse.json(response);
   } catch (error) {
+    if (error instanceof DateRangeError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("Error fetching profit data:", error);
     return NextResponse.json(
       { error: "Failed to fetch profit data", details: error instanceof Error ? error.message : "Unknown error" },

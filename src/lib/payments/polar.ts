@@ -1,3 +1,4 @@
+import { appUrl } from "@/lib/utils/app-url";
 /**
  * Polar.sh Payment Integration
  * Handles subscriptions, invoices, and webhooks from Polar.sh
@@ -230,8 +231,8 @@ export async function createPolarCheckout(
       body: JSON.stringify({
         product_id: productId,
         customer_email: customerEmail,
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing?success=true`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing?canceled=true`,
+        success_url: `${appUrl()}/dashboard/billing?success=true`,
+        cancel_url: `${appUrl()}/dashboard/billing?canceled=true`,
         metadata,
       }),
     });

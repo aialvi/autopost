@@ -1,3 +1,7 @@
+import { appUrl } from "@/lib/utils/app-url";
+import { snapshotId } from "@/lib/platforms/ads/snapshot";
+import { isQuietHours, dateInTimezone } from "./time";
+import { calculateProfitMetrics } from "@/lib/profit/calculations";
 /**
  * Telegram Notification Utilities
  * Functions for sending various types of notifications via Telegram
@@ -8,6 +12,7 @@ import {
   notificationPreferences,
   notificationLogs,
   brands,
+  brandUsers,
 } from "@/lib/db/schema";
 import { eq, and, gte, lte } from "drizzle-orm";
 import {
@@ -24,6 +29,7 @@ export interface NotificationContext {
 }
 
 export interface LowRoasAlertContext {
+  userId?: string;
   brandId: string;
   campaignName: string;
   platform: string;
@@ -33,6 +39,7 @@ export interface LowRoasAlertContext {
 }
 
 export interface SpendSpikeAlertContext {
+  userId?: string;
   brandId: string;
   platform: string;
   currentSpend: number;
@@ -41,6 +48,7 @@ export interface SpendSpikeAlertContext {
 }
 
 export interface RevenueDropAlertContext {
+  userId?: string;
   brandId: string;
   currentRevenue: number;
   previousRevenue: number;
@@ -48,6 +56,7 @@ export interface RevenueDropAlertContext {
 }
 
 export interface NewOrderAlertContext {
+  userId?: string;
   brandId: string;
   orderNumber: string;
   total: number;
@@ -55,6 +64,7 @@ export interface NewOrderAlertContext {
 }
 
 export interface DailySummaryContext {
+  userId?: string;
   brandId: string;
   date: string;
   revenue: number;
@@ -93,11 +103,16 @@ async function sendNotification(
 
   // Get all notification preferences for this brand
   const preferences = await db.query.notificationPreferences.findMany({
-    where: eq(notificationPreferences.brandId, brandId),
+    where: context.userId ? and(eq(notificationPreferences.brandId, brandId), eq(notificationPreferences.userId, context.userId)) : eq(notificationPreferences.brandId, brandId),
   });
+  const memberships = await db.query.brandUsers.findMany({ where: eq(brandUsers.brandId, brandId) });
+  const allowedUsers = new Set(memberships.map((member) => member.userId));
+  const flags: Record<string, keyof typeof notificationPreferences.$inferSelect> = {
+    low_roas: "alertOnLowRoas", spend_spike: "alertOnSpendSpike", revenue_drop: "alertOnRevenueDrop", new_order: "alertOnNewOrder", daily_summary: "alertOnDailySummary", weekly_summary: "alertOnWeeklySummary",
+  };
 
   for (const pref of preferences) {
-    if (!pref.enabled || !pref.telegramChatId) {
+    if (!pref.enabled || !pref.telegramChatId || !allowedUsers.has(pref.userId) || !pref[flags[type]]) {
       continue;
     }
 
@@ -106,62 +121,27 @@ async function sendNotification(
       continue;
     }
 
+    // Summaries send once a day; alert jobs suppress repeats for two hours.
+    const now = new Date();
+    const since = new Date(now.getTime() - (type.endsWith("summary") ? 20 * 3600000 : 2 * 3600000));
+    const alreadySent = await db.query.notificationLogs.findFirst({ where: and(eq(notificationLogs.brandId, brandId), eq(notificationLogs.userId, pref.userId), eq(notificationLogs.type, type), eq(notificationLogs.status, "sent"), gte(notificationLogs.sentAt, since)) });
+    if (alreadySent) continue;
     const message = messageBuilder(pref);
     const keyboard = keyboardBuilder ? keyboardBuilder() : undefined;
 
+    const slot = type.endsWith("summary") ? dateInTimezone(now, pref.timezone) : String(Math.floor(now.getTime() / (2 * 3600000)));
+    const id = snapshotId(brandId, type, pref.userId, slot);
+    const [reserved] = await db.insert(notificationLogs).values({ id, brandId, userId: pref.userId, type, channel: "telegram", status: "pending", title: type.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()), message, sentAt: now }).onConflictDoUpdate({ target: notificationLogs.id, set: { status: "pending", error: null }, setWhere: eq(notificationLogs.status, "failed") }).returning({ id: notificationLogs.id });
+    if (!reserved) continue;
     const result = await sendMessage({
       chatId: pref.telegramChatId,
       text: message,
       replyMarkup: keyboard,
     });
 
-    // Log the notification
-    await db.insert(notificationLogs).values({
-      brandId,
-      userId: pref.userId,
-      type,
-      channel: "telegram",
-      status: result.ok ? "sent" : "failed",
-      title: type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-      message,
-      sentAt: new Date(),
-      error: result.ok ? undefined : result.description,
-    });
-  }
-}
+    await db.update(notificationLogs).set({ status: result.ok ? "sent" : "failed", sentAt: new Date(), error: result.ok ? null : result.description }).where(eq(notificationLogs.id, id));
+    if (!result.ok) throw new Error(`Telegram delivery failed: ${result.description ?? "Unknown error"}`);
 
-/**
- * Check if current time is within quiet hours
- */
-function isQuietHours(pref: any): boolean {
-  if (!pref.quietHoursStart || !pref.quietHoursEnd) {
-    return false;
-  }
-
-  const now = new Date();
-  const currentTime = now
-    .toLocaleTimeString("en-US", {
-      timeZone: pref.timezone,
-      hour12: false,
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-    .slice(0, 5);
-
-  const [start] = pref.quietHoursStart.split(":").map(Number);
-  const [end] = pref.quietHoursEnd.split(":").map(":");
-  const [currentHour, currentMinute] = currentTime.split(":").map(Number);
-  const currentMinutes = currentHour * 60 + currentMinute;
-
-  const startMinutes = start * 60;
-  const endMinutes = end * 60;
-
-  if (startMinutes <= endMinutes) {
-    // Same day range (e.g., 22:00 - 06:00 crosses midnight, this wouldn't happen)
-    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
-  } else {
-    // Crosses midnight (e.g., 22:00 - 06:00)
-    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
   }
 }
 
@@ -172,7 +152,7 @@ export async function sendLowRoasAlert(context: LowRoasAlertContext): Promise<vo
   const { brandId, campaignName, platform, currentRoas, threshold, adSpend } = context;
 
   await sendNotification(
-    { brandId },
+    { brandId, userId: context.userId },
     "low_roas",
     () => {
       const emoji = currentRoas < 0.5 ? "🚨" : currentRoas < 1 ? "⚠️" : "📉";
@@ -189,7 +169,7 @@ Recommendation: Consider pausing or optimizing this campaign.`;
     },
     () =>
       createKeyboard([
-        { text: "View Campaign", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/campaigns?brandId=${brandId}` },
+        { text: "View Campaign", url: `${appUrl()}/dashboard?brandId=${brandId}` },
       ])
   );
 }
@@ -201,7 +181,7 @@ export async function sendSpendSpikeAlert(context: SpendSpikeAlertContext): Prom
   const { brandId, platform, currentSpend, expectedSpend, deviation } = context;
 
   await sendNotification(
-    { brandId },
+    { brandId, userId: context.userId },
     "spend_spike",
     () => {
       const emoji = deviation > 100 ? "🚨" : deviation > 50 ? "⚠️" : "📈";
@@ -217,7 +197,7 @@ This is unusual spending activity. Please review your campaigns.`;
     },
     () =>
       createKeyboard([
-        { text: "View Dashboard", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?brandId=${brandId}` },
+        { text: "View Dashboard", url: `${appUrl()}/dashboard?brandId=${brandId}` },
       ])
   );
 }
@@ -229,7 +209,7 @@ export async function sendRevenueDropAlert(context: RevenueDropAlertContext): Pr
   const { brandId, currentRevenue, previousRevenue, dropPercentage } = context;
 
   await sendNotification(
-    { brandId },
+    { brandId, userId: context.userId },
     "revenue_drop",
     () => {
       const emoji = dropPercentage > 40 ? "🚨" : dropPercentage > 20 ? "⚠️" : "📉";
@@ -246,7 +226,7 @@ This is a significant drop. Check for:
     },
     () =>
       createKeyboard([
-        { text: "View Profit Analytics", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profit?brandId=${brandId}` },
+        { text: "View Profit Analytics", url: `${appUrl()}/dashboard/profit?brandId=${brandId}` },
       ])
   );
 }
@@ -258,7 +238,7 @@ export async function sendNewOrderAlert(context: NewOrderAlertContext): Promise<
   const { brandId, orderNumber, total, customerEmail } = context;
 
   await sendNotification(
-    { brandId },
+    { brandId, userId: context.userId },
     "new_order",
     () => {
       return `🛒 <b>New Order</b>
@@ -279,7 +259,7 @@ export async function sendDailySummary(context: DailySummaryContext): Promise<vo
   const { brandId, date, revenue, orders, adSpend, roas, topCampaigns } = context;
 
   await sendNotification(
-    { brandId },
+    { brandId, userId: context.userId },
     "daily_summary",
     () => {
       let message = `📊 <b>Daily Summary - ${date}</b>\n\n`;
@@ -299,8 +279,8 @@ export async function sendDailySummary(context: DailySummaryContext): Promise<vo
     },
     () =>
       createKeyboard([
-        { text: "View Dashboard", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?brandId=${brandId}` },
-        { text: "Full Report", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/profit?brandId=${brandId}` },
+        { text: "View Dashboard", url: `${appUrl()}/dashboard?brandId=${brandId}` },
+        { text: "Full Report", url: `${appUrl()}/dashboard/profit?brandId=${brandId}` },
       ])
   );
 }
@@ -314,7 +294,7 @@ export async function sendWeeklySummary(
   const { brandId, revenue, orders, adSpend, roas, weekNumber } = context;
 
   await sendNotification(
-    { brandId },
+    { brandId, userId: context.userId },
     "weekly_summary",
     () => {
       return `📊 <b>Weekly Summary - Week ${weekNumber}</b>
@@ -328,8 +308,8 @@ Great week! Keep up the momentum 🚀`;
     },
     () =>
       createKeyboard([
-        { text: "View Dashboard", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?brandId=${brandId}` },
-        { text: "AI Insights", url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/ai?brandId=${brandId}` },
+        { text: "View Dashboard", url: `${appUrl()}/dashboard?brandId=${brandId}` },
+        { text: "AI Insights", url: `${appUrl()}/dashboard/ai?brandId=${brandId}` },
       ])
   );
 }
@@ -358,18 +338,28 @@ If you received this, your Telegram notifications are configured correctly! 🎉
  * Check and trigger alerts based on conditions
  */
 export async function checkAndTriggerAlerts(brandId: string): Promise<void> {
-  const prefs = await getNotificationPreferences(brandId);
-
-  if (!prefs || !prefs.enabled) {
-    return;
+  const brand = await db.query.brands.findFirst({ where: eq(brands.id, brandId) });
+  if (!brand) return;
+  const preferences = await db.query.notificationPreferences.findMany({ where: eq(notificationPreferences.brandId, brandId) });
+  const today = dateInTimezone(new Date(), brand.timezone);
+  const previous = new Date(`${today}T00:00:00Z`); previous.setUTCDate(previous.getUTCDate() - 1);
+  const yesterday = previous.toISOString().slice(0, 10);
+  const start = new Date(previous); start.setUTCDate(start.getUTCDate() - 6);
+  const [current, lastDay, baseline] = await Promise.all([
+    calculateProfitMetrics(brandId, { startDate: today, endDate: today }),
+    calculateProfitMetrics(brandId, { startDate: yesterday, endDate: yesterday }),
+    calculateProfitMetrics(brandId, { startDate: start.toISOString().slice(0, 10), endDate: yesterday }),
+  ]);
+  for (const pref of preferences) {
+    if (!pref.enabled || !pref.telegramChatId) continue;
+    if (pref.alertOnLowRoas && current.adSpend > 0 && current.roas < Number(pref.lowRoasThreshold)) await sendLowRoasAlert({ brandId, userId: pref.userId, campaignName: `${brand.name} · All campaigns`, platform: "all platforms", currentRoas: current.roas, threshold: Number(pref.lowRoasThreshold), adSpend: current.adSpend });
+    const averageSpend = baseline.adSpend / 7;
+    const deviation = averageSpend > 0 ? (current.adSpend - averageSpend) / averageSpend * 100 : 0;
+    if (pref.alertOnSpendSpike && deviation >= Number(pref.spendSpikeThreshold)) await sendSpendSpikeAlert({ brandId, userId: pref.userId, platform: "all platforms", currentSpend: current.adSpend, expectedSpend: averageSpend, deviation });
+    // Compare complete days to avoid a partial morning appearing as a revenue drop.
+    const earlier = new Date(previous); earlier.setUTCDate(earlier.getUTCDate() - 1);
+    const prior = await calculateProfitMetrics(brandId, { startDate: earlier.toISOString().slice(0, 10), endDate: earlier.toISOString().slice(0, 10) });
+    const drop = prior.revenue > 0 ? (prior.revenue - lastDay.revenue) / prior.revenue * 100 : 0;
+    if (pref.alertOnRevenueDrop && drop >= Number(pref.revenueDropThreshold)) await sendRevenueDropAlert({ brandId, userId: pref.userId, currentRevenue: lastDay.revenue, previousRevenue: prior.revenue, dropPercentage: drop });
   }
-
-  // This would be called by a scheduled job
-  // Implementation would check actual metrics and trigger appropriate alerts
-
-  // Example:
-  // const todayMetrics = await calculateProfitMetrics(brandId, { startDate: today, endDate: today });
-  // if (prefs.alertOnLowRoas && todayMetrics.roas < parseFloat(prefs.lowRoasThreshold)) {
-  //   // Trigger low ROAS alert
-  // }
 }

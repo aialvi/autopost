@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export interface DailyProfitData {
   date: string;
@@ -15,174 +14,93 @@ export interface DailyProfitData {
   };
 }
 
-interface ProfitChartProps {
-  data: DailyProfitData[];
-}
-
 type MetricKey = "revenue" | "netProfit" | "adSpend" | "totalCost";
-
 const metricConfig: Record<MetricKey, { label: string; color: string }> = {
-  revenue: { label: "Revenue", color: "bg-green-500" },
+  revenue: { label: "Revenue", color: "bg-emerald-500" },
   netProfit: { label: "Net Profit", color: "bg-blue-500" },
-  adSpend: { label: "Ad Spend", color: "bg-red-500" },
-  totalCost: { label: "Total Cost", color: "bg-orange-500" },
+  adSpend: { label: "Ad Spend", color: "bg-rose-500" },
+  totalCost: { label: "Total Cost", color: "bg-amber-500" },
 };
+const PLOT_HEIGHT = 240;
+const shortDate = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export function ProfitChart({ data }: ProfitChartProps) {
+export function ProfitChart({ data, currency = "USD" }: { data: DailyProfitData[]; currency?: string }) {
+  const money = new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 });
+  const compactMoney = new Intl.NumberFormat("en-US", { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 });
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("netProfit");
+  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const config = metricConfig[selectedMetric];
 
-  if (!data || data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Profit Over Time</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            No data available for the selected period
-          </div>
-        </CardContent>
-      </Card>
-    );
+  if (!data?.length) {
+    return <Card><CardHeader><CardTitle>Profit Over Time</CardTitle></CardHeader><CardContent><p className="py-16 text-center text-sm text-muted-foreground">No data available for the selected period</p></CardContent></Card>;
   }
 
-  const maxValue = Math.max(
-    ...data.map((d) => d.metrics[selectedMetric])
-  );
-  const minValue = Math.min(
-    ...data.map((d) => d.metrics[selectedMetric])
-  );
-
-  // Format value for display
-  const formatValue = (value: number) => {
-    if (Math.abs(value) >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    }
-    if (Math.abs(value) >= 1000) {
-      return `$${(value / 1000).toFixed(1)}K`;
-    }
-    return `$${value.toFixed(0)}`;
-  };
-
-  // Calculate bar heights
-  const getBarHeight = (value: number) => {
-    if (maxValue === minValue) return 50;
-    const range = maxValue - minValue;
-    const normalized = (value - minValue) / range;
-    return Math.max(5, normalized * 100);
-  };
-
-  const getBarY = (value: number) => {
-    if (maxValue === minValue) return 50;
-    const range = maxValue - minValue;
-    const normalized = (value - minValue) / range;
-    return 100 - Math.max(0, normalized * 100);
-  };
+  // Include zero in the scale so bar height represents the actual amount.
+  // Negative profit extends below the same baseline, rather than overlapping it.
+  const values = data.map((day) => day.metrics[selectedMetric]);
+  const min = Math.min(0, ...values);
+  const max = Math.max(0, ...values);
+  const roughStep = (max - min || 1) / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const step = ([1, 2, 5, 10].find((multiple) => multiple * magnitude >= roughStep) ?? 10) * magnitude;
+  const lower = Math.floor(min / step) * step;
+  const upper = Math.ceil(max / step) * step || (min < 0 ? 0 : step * 4);
+  const range = upper - lower;
+  const toY = (value: number) => (upper - value) / range * PLOT_HEIGHT;
+  const baseline = toY(0);
+  const ticks = Array.from({ length: Math.round(range / step) + 1 }, (_, index) => upper - index * step);
+  const active = data.find((day) => day.date === activeDate);
+  const total = values.reduce((sum, value) => sum + value, 0);
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+      <CardHeader className="gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <CardTitle>Profit Over Time</CardTitle>
-          <Tabs value={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricKey)}>
-            <TabsList>
-              <TabsTrigger value="revenue" currentValue={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricKey)}>Revenue</TabsTrigger>
-              <TabsTrigger value="netProfit" currentValue={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricKey)}>Net Profit</TabsTrigger>
-              <TabsTrigger value="adSpend" currentValue={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricKey)}>Ad Spend</TabsTrigger>
-              <TabsTrigger value="totalCost" currentValue={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricKey)}>Total Cost</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div role="group" aria-label="Chart metric" className="grid w-full grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:flex sm:w-auto">
+            {(Object.entries(metricConfig) as [MetricKey, typeof config][]).map(([key, metric]) => (
+              <button key={key} type="button" aria-pressed={selectedMetric === key} onClick={() => { setSelectedMetric(key); setActiveDate(null); }} className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${selectedMetric === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/60"}`}>{metric.label}</button>
+            ))}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {/* Summary */}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              {metricConfig[selectedMetric].label}
-            </span>
-            <span className="font-semibold">
-              {formatValue(data.reduce((sum, d) => sum + d.metrics[selectedMetric], 0))}
-            </span>
+        <figure aria-label={`${config.label} over time`} className="min-w-0 space-y-3">
+          <figcaption className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">{config.label} for this period</span>
+            <span className="text-lg font-semibold tabular-nums">{money.format(total)}</span>
+          </figcaption>
+          <p className="min-h-8 text-xs leading-5 text-muted-foreground" aria-live="polite">
+            {active ? `${shortDate(active.date)} · ${config.label}: ${money.format(active.metrics[selectedMetric])}` : "Hover, tap, or focus a bar to see its value."}
+          </p>
+          <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-x-2">
+            <div aria-hidden="true" className="relative text-right text-xs tabular-nums text-muted-foreground" style={{ height: PLOT_HEIGHT }}>
+              {ticks.map((tick, index) => <span key={tick} className="absolute right-0 leading-none" style={{ top: toY(tick), transform: index === 0 ? "none" : index === ticks.length - 1 ? "translateY(-100%)" : "translateY(-50%)" }}>{compactMoney.format(tick)}</span>)}
+            </div>
+            <div className="relative min-w-0" style={{ height: PLOT_HEIGHT }}>
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+                {ticks.map((tick) => <div key={tick} className={`absolute left-0 right-0 border-t ${tick === 0 ? "border-border" : "border-dashed border-border/60"}`} style={{ top: toY(tick) }} />)}
+              </div>
+              <div className="absolute inset-0 flex gap-0.5 sm:gap-1" onMouseLeave={() => setActiveDate(null)}>
+                {data.map((day) => {
+                  const value = day.metrics[selectedMetric];
+                  const height = Math.abs(toY(value) - baseline);
+                  return (
+                    <button key={day.date} type="button" aria-label={`${shortDate(day.date)}, ${config.label}: ${money.format(value)}`} onMouseEnter={() => setActiveDate(day.date)} onFocus={() => setActiveDate(day.date)} onBlur={() => setActiveDate(null)} onClick={() => setActiveDate(day.date)} className="relative h-full min-w-0 flex-1 rounded-sm focus-visible:z-10 focus-visible:outline-offset-1">
+                      <span className={`absolute inset-x-0 rounded-sm transition-opacity ${value < 0 ? "bg-red-500" : config.color} ${activeDate && activeDate !== day.date ? "opacity-60" : "opacity-100"}`} style={{ top: Math.min(toY(value), baseline), height }} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div />
+            <div aria-hidden="true" className="mt-3 flex justify-between gap-2 text-xs text-muted-foreground">
+              <span>{shortDate(data[0].date)}</span>
+              {data.length > 2 && <span>{shortDate(data[Math.floor(data.length / 2)].date)}</span>}
+              {data.length > 1 && <span>{shortDate(data[data.length - 1].date)}</span>}
+            </div>
           </div>
-
-          {/* Chart */}
-          <div className="relative h-64">
-            {/* Grid lines */}
-            <div className="absolute inset-0 flex flex-col justify-between">
-              <div className="border-b border-dashed border-border/50" />
-              <div className="border-b border-dashed border-border/50" />
-              <div className="border-b border-dashed border-border/50" />
-              <div className="border-b border-dashed border-border/50" />
-              <div />
-            </div>
-
-            {/* Y-axis labels */}
-            <div className="absolute left-0 top-0 bottom-0 -ml-8 flex flex-col justify-between text-xs text-muted-foreground">
-              <span>{formatValue(maxValue)}</span>
-              <span>{formatValue((maxValue + minValue) / 2)}</span>
-              <span>{formatValue(minValue)}</span>
-            </div>
-
-            {/* Bars */}
-            <div className="absolute inset-0 flex items-end justify-between gap-1 pl-8">
-              {data.map((d, i) => {
-                const value = d.metrics[selectedMetric];
-                const height = getBarHeight(value);
-                const isNegative = value < 0;
-
-                return (
-                  <div
-                    key={d.date}
-                    className="flex-1 flex flex-col items-center group relative"
-                  >
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover border rounded-md px-2 py-1 text-xs whitespace-nowrap shadow-lg">
-                      <div className="font-medium">{d.date}</div>
-                      <div>
-                        {metricConfig[selectedMetric].label}: {formatValue(value)}
-                      </div>
-                    </div>
-
-                    {/* Bar */}
-                    <div
-                      className="w-full rounded-t transition-all hover:opacity-80"
-                      style={{
-                        height: `${height}%`,
-                        backgroundColor: isNegative ? "rgb(239 68 68)" : undefined,
-                      }}
-                    >
-                      <div
-                        className={`w-full h-full ${metricConfig[selectedMetric].color} rounded-t`}
-                        style={{ opacity: isNegative ? 1 : undefined }}
-                      />
-                    </div>
-
-                    {/* X-axis label for first, middle, last */}
-                    {(i === 0 || i === Math.floor(data.length / 2) || i === data.length - 1) && (
-                      <div className="text-xs text-muted-foreground mt-1 truncate w-full text-center">
-                        {new Date(d.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Zero line if there are negative values */}
-            {minValue < 0 && (
-              <div
-                className="absolute left-8 right-0 border-t border-red-500/50"
-                style={{
-                  top: `${getBarY(0)}%`,
-                }}
-              />
-            )}
-          </div>
-        </div>
+        </figure>
       </CardContent>
     </Card>
   );

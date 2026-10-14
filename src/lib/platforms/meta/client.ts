@@ -55,7 +55,8 @@ export interface MetaInsights {
   spend: number;
   impressions: number;
   clicks: number;
-  actions: Array<Record<string, any>>;
+  actions: Array<{ action_type: string; value: string | number }>;
+  action_values?: Array<{ action_type: string; value: string | number }>;
 }
 
 export class MetaClient {
@@ -64,7 +65,7 @@ export class MetaClient {
 
   constructor(config: MetaConfig) {
     this.config = config;
-    this.apiVersion = config.apiVersion || "v19.0";
+    this.apiVersion = config.apiVersion || process.env.META_API_VERSION || "v24.0";
   }
 
   private async request<T>(
@@ -75,6 +76,7 @@ export class MetaClient {
     const url = `https://graph.facebook.com/${this.apiVersion}${endpoint}?${searchParams.toString()}`;
 
     const response = await fetch(url, {
+      signal: AbortSignal.timeout(20000),
       headers: {
         Authorization: `Bearer ${this.config.accessToken}`,
       },
@@ -90,44 +92,53 @@ export class MetaClient {
     return response.json();
   }
 
+  private async list<T>(endpoint: string, params: Record<string, string>): Promise<T[]> {
+    const rows: T[] = [];
+    let after: string | undefined;
+    do {
+      const result: { data: T[]; paging?: { next?: string; cursors?: { after?: string } } } = await this.request(endpoint, { ...params, limit: "100", ...(after ? { after } : {}) });
+      rows.push(...result.data);
+      const next = result.paging?.next ? result.paging.cursors?.after : undefined;
+      if (next && next === after) throw new Error("Meta returned a repeated pagination cursor");
+      after = next;
+    } while (after);
+    return rows;
+  }
+
   async getAdAccounts(): Promise<MetaAdAccount[]> {
-    const response = await this.request<{ data: MetaAdAccount[] }>(
+    return this.list<MetaAdAccount>(
       "/me/adaccounts",
       { fields: "account_id,name,account_status" }
     );
-    return response.data;
   }
 
   async getCampaigns(adAccountId: string): Promise<MetaCampaign[]> {
-    const response = await this.request<{ data: MetaCampaign[] }>(
+    return this.list<MetaCampaign>(
       `/act_${adAccountId}/campaigns`,
       {
         fields:
           "id,name,status,objective,daily_budget,lifetime_budget,created_time,updated_time",
       }
     );
-    return response.data;
   }
 
   async getAdSets(campaignId: string): Promise<MetaAdSet[]> {
-    const response = await this.request<{ data: MetaAdSet[] }>(
+    return this.list<MetaAdSet>(
       `/${campaignId}/adsets`,
       {
         fields: "id,account_id,campaign_id,name,status,created_time,updated_time",
       }
     );
-    return response.data;
   }
 
   async getAds(adSetId: string): Promise<MetaAd[]> {
-    const response = await this.request<{ data: MetaAd[] }>(
+    return this.list<MetaAd>(
       `/${adSetId}/ads`,
       {
         fields:
           "id,account_id,adset_id,name,status,creative{thumbnail_url},created_time,updated_time",
       }
     );
-    return response.data;
   }
 
   async getInsights(
@@ -136,19 +147,18 @@ export class MetaClient {
     dateStart: string,
     dateEnd: string
   ): Promise<MetaInsights[]> {
-    const response = await this.request<{ data: MetaInsights[] }>(
+    return this.list<MetaInsights>(
       `/${id}/insights`,
       {
         fields:
-          "account_id,campaign_id,adset_id,ad_id,date_start,date_stop,spend,impressions,clicks,actions",
-        time_range: `since_${dateStart}_until_${dateEnd}`,
+          "account_id,campaign_id,adset_id,ad_id,date_start,date_stop,spend,impressions,clicks,actions,action_values",
+        time_range: JSON.stringify({ since: dateStart, until: dateEnd }),
         time_increment: "1",
         level,
-        attribution_windows: "7d_click",
+        action_attribution_windows: JSON.stringify(["7d_click"]),
         default_summary: "true",
       }
     );
-    return response.data;
   }
 
   // Convert Meta actions to conversions
@@ -156,8 +166,12 @@ export class MetaClient {
     // Action type for purchases
     const purchaseAction = insights.actions?.find(
       (a) => a.action_type === "offsite_conversion.fb_pixel_purchase"
-    );
-    return purchaseAction?.value || 0;
+    ) ?? insights.actions?.find((action) => action.action_type === "purchase");
+    return Number(purchaseAction?.value || 0);
+  }
+
+  static getConversionValue(insights: MetaInsights): number {
+    return Number(insights.action_values?.find((action) => action.action_type === "offsite_conversion.fb_pixel_purchase")?.value ?? insights.action_values?.find((action) => action.action_type === "purchase")?.value ?? 0);
   }
 
   static calculateCTR(insights: MetaInsights): number {

@@ -1,12 +1,19 @@
+import { LoginForm } from "@/components/auth/login-form";
+import { isDemoEnabled } from "@/lib/demo/config";
 import { signIn } from "@/lib/auth";
 import { loginSchema } from "@/lib/auth/utils";
-import { getPasswordStrength } from "@/lib/auth/utils";
 import { isOAuthEnabled } from "@/lib/auth";
-import { cn } from "@/lib/utils/cn";
+import { AuthError } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; registered?: string; demo?: string }>;
+}) {
+  const { error, registered, demo } = await searchParams;
+
   async function loginAction(formData: FormData) {
     "use server";
     const email = formData.get("email") as string;
@@ -18,11 +25,18 @@ export default function LoginPage() {
       redirect("/login?error=Invalid credentials");
     }
 
-    await signIn("credentials", {
-      email,
-      password,
-      redirectTo: "/dashboard",
-    });
+    try {
+      await signIn("credentials", {
+        email,
+        password,
+        redirectTo: "/dashboard",
+      });
+    } catch (err) {
+      if (err instanceof AuthError) {
+        redirect("/login?error=Invalid email or password");
+      }
+      throw err;
+    }
   }
 
   return (
@@ -36,50 +50,18 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form action={loginAction} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-neutral-700 mb-1.5"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900"
-                placeholder="you@example.com"
-              />
-            </div>
+          {registered === "1" && <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Your account is ready. Sign in to get started.</p>}
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-neutral-700 mb-1.5"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-1 focus:ring-neutral-900 focus:border-neutral-900"
-                placeholder="••••••••"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-neutral-900 text-white py-2 px-4 rounded-md hover:bg-neutral-800 transition-colors font-medium"
+          {error && (
+            <div
+              role="alert"
+              className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
             >
-              Sign in
-            </button>
-          </form>
+              {error}
+            </div>
+          )}
+
+          <LoginForm action={loginAction} demoEnabled={isDemoEnabled()} fillDemo={demo === "1" && isDemoEnabled()} />
 
           {isOAuthEnabled() && (
             <>
@@ -129,7 +111,7 @@ export default function LoginPage() {
           )}
 
           <p className="text-center text-sm text-neutral-500 mt-6">
-            Don't have an account?{" "}
+            Don’t have an account?{" "}
             <Link
               href="/register"
               className="font-medium text-neutral-900 hover:text-neutral-700"

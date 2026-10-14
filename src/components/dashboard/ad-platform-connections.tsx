@@ -153,7 +153,7 @@ export function AdPlatformConnections({ brandId, canEdit }: AdPlatformConnection
           customerId: accountId,
         };
       case "tiktok":
-        return { appId, appSecret, accessToken };
+        return { appId, appSecret, accessToken, accountId };
       default:
         return base;
     }
@@ -334,6 +334,10 @@ export function AdPlatformConnections({ brandId, canEdit }: AdPlatformConnection
                             </DialogDescription>
                           </DialogHeader>
                           <form onSubmit={handleConnect} className="space-y-4">
+                            {(platform.id === "snapchat" || platform.id === "tiktok") && <div>
+                              <Label htmlFor="accountId">{platform.id === "tiktok" ? "Advertiser ID" : "Ad account ID"}</Label>
+                              <Input id="accountId" value={accountId} onChange={(event) => setAccountId(event.target.value)} required disabled={connecting} placeholder="The account to connect" />
+                            </div>}
                             {platform.id === "meta" && (
                               <>
                                 <div>

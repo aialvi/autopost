@@ -1,3 +1,4 @@
+import { DEMO_EMAIL, DEMO_PASSWORD, DEMO_USER_ID, isDemoEnabled } from "@/lib/demo/config";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
@@ -31,6 +32,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           const { email, password } = validatedFields.data;
+          if (email.toLowerCase() === DEMO_EMAIL) {
+            if (!isDemoEnabled() || password !== DEMO_PASSWORD) return null;
+            return { id: DEMO_USER_ID, email: DEMO_EMAIL, name: "Demo visitor", role: "operator" };
+          }
 
           const user = await db.query.users.findFirst({
             where: eq(users.email, email),
@@ -79,6 +84,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
     async signIn({ user, account }) {
+      // The public demo identity can only be issued by the credentials provider.
+      if (account?.provider !== "credentials" && user?.email?.toLowerCase() === DEMO_EMAIL) return false;
       // For OAuth, check if user exists, create if not
       if (account?.provider !== "credentials" && user?.email) {
         const existingUser = await db.query.users.findFirst({

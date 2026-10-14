@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AutoPost - Automate your social media & ads",
-  description: "Connect your store, manage multiple brands, track profits, and let AI optimize your marketing.",
+  title: "AutoPost - Multi-brand ad performance & profit",
+  description: "AI-powered multi-brand ad management. Track Shopify profit, ad spend, COGS-aware P&L, ROAS, Telegram alerts, and AI recommendations across Meta, Google, TikTok, and Snapchat.",
 };
 
 export default function RootLayout({
@@ -24,6 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
+      data-scroll-behavior="smooth"
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >

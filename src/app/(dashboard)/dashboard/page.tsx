@@ -1,11 +1,15 @@
-import { cookies } from "next/headers";
+import { auth } from "@/lib/auth";
+import { isDemoUser } from "@/lib/demo/config";
+import { getDemoOverview, getDemoComparison } from "@/lib/demo/data";
+import { getActiveBrandId } from "@/lib/demo/active-brand";
 import { redirect } from "next/navigation";
 import { getUserBrands } from "@/lib/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { DashboardOverviewClient } from "./dashboard-overview-client";
-import { MultiBrandComparison } from "@/components/dashboard/multi-brand-comparison";
+import { getDashboardOverview, getMultiBrandComparison } from "@/lib/dashboard/overview";
+import { SelectBrandButton } from "@/components/dashboard/select-brand-button";
 
 interface PageProps {
   searchParams: Promise<{
@@ -14,15 +18,14 @@ interface PageProps {
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const cookieStore = await cookies();
-  const brandId = cookieStore.get("currentBrandId")?.value;
+  const brandId = await getActiveBrandId();
 
   const params = await searchParams;
   const compareIds = params.compare?.split(",");
 
   const result = await getUserBrands();
 
-  if (result.error || !result.brands) {
+  if (result.error || !result.brands || result.brands.length === 0) {
     return (
       <div className="max-w-md mx-auto">
         <Card>
@@ -43,10 +46,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
 
   // If no brand selected, show brand list
-  if (!brandId) {
+  if (!brandId || !result.brands.some((brand) => brand.id === brandId)) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
               Dashboard
@@ -81,9 +84,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard?brandId=${brand.id}`}>View Dashboard</Link>
-                  </Button>
+                  <SelectBrandButton brandId={brand.id} />
                 </div>
               </CardContent>
             </Card>
@@ -99,30 +100,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     redirect("/dashboard/brands");
   }
 
-  // Fetch dashboard data via API
-  const dashboardResponse = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/${brandId}/overview`,
-    { cache: "no-store" }
-  );
-  const dashboardData = await dashboardResponse.json();
+  const demo = isDemoUser((await auth())?.user?.id);
+  const dashboardData = demo ? getDemoOverview(brandId) : await getDashboardOverview(brandId);
 
-  // Fetch multi-brand comparison if requested
+  // Compare only brands the current user is allowed to access.
+  const allowedIds = new Set(result.brands.map((brand) => brand.id));
+  const selectedIds = [...new Set(compareIds)].filter((id) => allowedIds.has(id)).slice(0, 5);
   let comparisonData = null;
-  if (compareIds && compareIds.length > 1) {
-    const comparisonResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/dashboard/compare?brandIds=${compareIds.join(",")}`,
-      { cache: "no-store" }
-    );
-    if (comparisonResponse.ok) {
-      comparisonData = await comparisonResponse.json();
-    }
+  if (selectedIds.length > 1) {
+    const now = new Date();
+    const endDate = now.toISOString().split("T")[0];
+    const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    comparisonData = { comparisons: demo ? getDemoComparison(selectedIds) : await getMultiBrandComparison(selectedIds, { startDate, endDate }) };
   }
 
   return (
     <DashboardOverviewClient
+      key={brandId}
       brandId={brandId}
       brandName={currentBrand.name}
       userRole={currentBrand.userRole}
+      currency={currentBrand.currency}
       allBrands={result.brands}
       initialData={dashboardData}
       comparisonData={comparisonData}

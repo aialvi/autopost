@@ -1,3 +1,4 @@
+import { verifyTelegramSecret } from "@/lib/webhooks/verify";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -7,17 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-
-    // Verify the request is from Telegram (optional, recommended)
-    // Telegram doesn't sign webhooks, so we verify by checking the secret token
-    const secretToken = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
-    if (
-      secretToken !== process.env.TELEGRAM_WEBHOOK_SECRET &&
-      process.env.NODE_ENV === "production"
-    ) {
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    if (!secret) return NextResponse.json({ error: "Telegram webhooks are not configured" }, { status: 503 });
+    if (!verifyTelegramSecret(request.headers.get("X-Telegram-Bot-Api-Secret-Token"), secret)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const body = await request.json();
 
     // Process the update
     const update = body;

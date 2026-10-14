@@ -222,3 +222,43 @@ Profit = Revenue (Shopify) - COGS - Ad Spend - Transaction Fees - Shipping - Cus
 ## License
 
 MIT
+
+
+## Demo workspace
+
+The login page includes **Fill demo credentials**. Select it, then **Sign in**.
+The registration page also links to the demo with the login fields prefilled.
+
+- Email: `demo@autopost.app`
+- Password: `DemoPass123!`
+
+The demo is enabled by default in both development and production. Set
+`DEMO_ENABLED=false` to disable it. These credentials are intentionally public;
+they authenticate a separate sample identity and never a database user.
+
+Visitors can switch among three brands and explore Shopify, Meta, Snapchat,
+Google Ads, and TikTok connections, profit charts, attribution models, AI
+insights, notification history, and a Pro subscription with sample invoices.
+Dates stay current automatically. Date ranges, report granularity, attribution
+models, CAPI platform filters, and notification pagination work with sample data.
+
+Demo data is generated per request: no seed command, database rows, real API
+credentials, scheduled reset, or writable filesystem is needed. Keep the normal
+app configuration (`DATABASE_URL`, `AUTH_SECRET`, and the deployment's auth URL)
+when deploying to Vercel or another host. The demo uses the same signed session
+and dashboard components as the application. All demo API mutations are rejected
+server-side, real brand IDs are inaccessible to demo sessions, and outbound
+integration, AI, Telegram, and payment services are never called for the demo.
+Brand selection is stored only in each visitor's cookie. Sign out to create or
+use a real account.
+
+With a server running, verify the demo using:
+
+```sh
+npm run test:demo
+# Or test another local/production deployment:
+DEMO_TEST_URL=https://your-deployment.example npm run test:demo
+```
+
+The integration checks use only the demo identity; mutation checks must return
+403 and never create accounts, charge cards, send messages, or change records.

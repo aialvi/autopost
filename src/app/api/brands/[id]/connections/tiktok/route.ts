@@ -1,3 +1,5 @@
+import { protectSecret, safeConnection } from "@/lib/platforms/connection-secrets";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { platformConnections } from "@/lib/db/schema";
@@ -12,6 +14,8 @@ interface RouteContext {
 
 export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -36,8 +40,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     }
 
     // Don't expose the full access token or app secret
-    const { accessToken, ...safeConnection } = connection;
-    return NextResponse.json({ connected: true, connection: safeConnection });
+    return NextResponse.json({ connected: true, connection: safeConnection(connection) });
   } catch (error) {
     console.error("Error fetching TikTok connection:", error);
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
@@ -46,6 +49,8 @@ export async function GET(req: Request, { params }: RouteContext) {
 
 export async function POST(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -59,9 +64,9 @@ export async function POST(req: Request, { params }: RouteContext) {
 
   try {
     const body = await req.json();
-    const { appId, appSecret, accessToken } = body;
+    const { appId, appSecret, accessToken, accountId } = body;
 
-    if (!appId || !appSecret || !accessToken) {
+    if (!appId || !appSecret || !accessToken || !accountId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -69,7 +74,7 @@ export async function POST(req: Request, { params }: RouteContext) {
     const client = new TikTokClient({ appId, appSecret, accessToken });
     try {
       const accounts = await client.getAdAccounts();
-      if (accounts.length === 0) {
+      if (!accounts.some((account) => String(account.advertiser_id) === String(accountId))) {
         return NextResponse.json({ error: "No ad accounts found" }, { status: 400 });
       }
       // If we get here, credentials are valid
@@ -85,11 +90,10 @@ export async function POST(req: Request, { params }: RouteContext) {
       ),
     });
 
-    const accountId = appId; // Use appId as the account identifier
 
     const metadata = {
       appId,
-      appSecret,
+      appSecret: protectSecret(appSecret),
     };
 
     if (existing) {
@@ -98,7 +102,7 @@ export async function POST(req: Request, { params }: RouteContext) {
         .update(platformConnections)
         .set({
           accountId,
-          accessToken,
+          accessToken: protectSecret(accessToken),
           status: "active",
           lastSyncedAt: new Date(),
           updatedAt: new Date(),
@@ -111,7 +115,7 @@ export async function POST(req: Request, { params }: RouteContext) {
         brandId,
         platform: "tiktok",
         accountId,
-        accessToken,
+        accessToken: protectSecret(accessToken),
         status: "active",
         lastSyncedAt: new Date(),
         metadata,
@@ -127,6 +131,8 @@ export async function POST(req: Request, { params }: RouteContext) {
 
 export async function DELETE(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {

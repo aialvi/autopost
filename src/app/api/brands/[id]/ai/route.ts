@@ -1,3 +1,7 @@
+import { DateRangeError, getDates } from "@/lib/profit/metrics";
+import { enhanceRecommendations } from "@/lib/ai/provider";
+import { calculateProfitMetrics } from "@/lib/profit/calculations";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { hasBrandAccess } from "@/lib/auth";
 import { NextResponse } from "next/server";
@@ -9,12 +13,16 @@ import {
   type DateRange,
 } from "@/lib/ai/analysis";
 
+export const maxDuration = 120;
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
 export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -42,6 +50,7 @@ export async function GET(req: Request, { params }: RouteContext) {
       endDate: endDate || defaultEndDate.toISOString().split("T")[0],
     };
 
+    getDates(dateRange);
     // Calculate previous period for comparison
     const start = new Date(dateRange.startDate);
     const end = new Date(dateRange.endDate);
@@ -70,7 +79,8 @@ export async function GET(req: Request, { params }: RouteContext) {
     }
 
     if (type === "all" || type === "recommendations") {
-      result.recommendations = await generateRecommendations(brandId, dateRange);
+      const baseline = await generateRecommendations(brandId, dateRange);
+      Object.assign(result, await enhanceRecommendations(await calculateProfitMetrics(brandId, dateRange), baseline));
     }
 
     if (type === "all" || type === "trends") {
@@ -79,6 +89,7 @@ export async function GET(req: Request, { params }: RouteContext) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof DateRangeError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("Error generating AI analysis:", error);
     return NextResponse.json(
       { error: "Failed to generate analysis", details: error instanceof Error ? error.message : "Unknown error" },

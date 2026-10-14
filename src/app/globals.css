@@ -2,30 +2,42 @@
 
 :root {
   --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
+  --foreground: 150 8% 10%;
   --card: 0 0% 100%;
-  --card-foreground: 0 0% 9%;
+  --card-foreground: 150 8% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 9%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
+  --popover-foreground: 150 8% 10%;
+  --primary: 152 100% 26%;
+  --primary-foreground: 0 0% 100%;
   --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 9%;
+  --secondary-foreground: 150 8% 10%;
+  --muted: 150 6% 96%;
+  --muted-foreground: 150 8% 42%;
+  --accent: 150 6% 96%;
+  --accent-foreground: 150 8% 10%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 0 0% 9%;
-  --chart-1: 0 0% 9%;
-  --chart-2: 0 0% 85%;
-  --chart-3: 0 0% 70%;
-  --chart-4: 0 0% 55%;
-  --chart-5: 0 0% 40%;
-  --radius: 0.5rem;
+  --border: 150 8% 90%;
+  --input: 150 8% 90%;
+  --ring: 152 100% 26%;
+  --chart-1: 152 100% 36%;
+  --chart-2: 150 8% 85%;
+  --chart-3: 150 8% 70%;
+  --chart-4: 150 8% 55%;
+  --chart-5: 150 8% 40%;
+  --radius: 0.75rem;
+
+  /* AutoPost marketing tokens */
+  --ap-primary: #008542;
+  --ap-primary-hover: #006E36;
+  --ap-primary-dark: #007A3A;
+  --ap-mint: #EAFBF2;
+  --ap-mint-light: #F6FCF8;
+  --ap-surface: #F8FAF9;
+  --ap-border: #E5EBE7;
+  --ap-muted: #66736B;
+  --ap-foreground: #171A18;
+  --ap-background: #FFFFFF;
 }
 
 .dark {
@@ -82,6 +94,18 @@
   --color-chart-5: hsl(var(--chart-5));
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Marketing colors */
+  --color-ap-primary: var(--ap-primary);
+  --color-ap-primary-hover: var(--ap-primary-hover);
+  --color-ap-primary-dark: var(--ap-primary-dark);
+  --color-ap-mint: var(--ap-mint);
+  --color-ap-mint-light: var(--ap-mint-light);
+  --color-ap-surface: var(--ap-surface);
+  --color-ap-border: var(--ap-border);
+  --color-ap-muted: var(--ap-muted);
+  --color-ap-foreground: var(--ap-foreground);
+  --color-ap-background: var(--ap-background);
 }
 
 * {
@@ -92,4 +116,54 @@ body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+:where(button, [role="button"]):not(:disabled) {
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Smooth scrolling for anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Marketing page styles */
+.marketing-gradient-text {
+  background: linear-gradient(135deg, var(--ap-primary) 0%, var(--ap-primary-dark) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.marketing-page section[id], .marketing-page main[id] {
+  scroll-margin-top: 88px;
+}
+
+.marketing-page .grid > * { min-width: 0; }
+
+.dashboard-shell {
+  --primary: 152 47% 12%; /* #102c20 */
+  --primary-foreground: 0 0% 100%;
+  --foreground: 152 30% 13%;
+  --card-foreground: 152 30% 13%;
+  --secondary: 146 68% 95%;
+  --secondary-foreground: 152 47% 12%;
+  --accent: 146 68% 95%;
+  --accent-foreground: 152 47% 12%;
+  --border: 146 18% 88%;
+  --input: 146 18% 84%;
 }

@@ -1,14 +1,12 @@
+import { persistShopifyOrder } from "./order";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
   shopifyProducts,
   shopifyVariants,
-  shopifyOrders,
-  shopifyOrderItems,
-  transactionFees,
   syncLogs,
 } from "@/lib/db/schema";
-import { ShopifyClient, calculateTransactionFee, hashEmail } from "./client";
+import { ShopifyClient } from "./client";
 import { eq, and } from "drizzle-orm";
 
 interface SyncProductsResult {
@@ -39,6 +37,14 @@ export async function syncShopifyProducts(
 
   try {
     const products = await client.getProducts({ limit: 250 });
+    for (const product of products) {
+      const inventoryIds = product.variants.map((variant) => variant.inventory_item_id).filter(Boolean);
+      if (inventoryIds.length) {
+        const inventory = await client.getInventoryItems(inventoryIds);
+        const costs = new Map(inventory.map((item) => [String(item.id), item.cost]));
+        for (const variant of product.variants) variant.inventory_item = { cost: costs.get(String(variant.inventory_item_id)) ?? null };
+      }
+    }
 
     for (const product of products) {
       try {
@@ -65,7 +71,7 @@ export async function syncShopifyProducts(
           // Update variants
           for (const variant of product.variants) {
             const existingVariant = await db.query.shopifyVariants.findFirst({
-              where: eq(shopifyVariants.shopifyVariantId, bigintToNumber(variant.id)),
+              where: and(eq(shopifyVariants.productId, existing.id), eq(shopifyVariants.shopifyVariantId, bigintToNumber(variant.id))),
             });
 
             if (existingVariant) {
@@ -150,105 +156,9 @@ export async function syncShopifyOrders(
 
     for (const order of orders) {
       try {
-        const existing = await db.query.shopifyOrders.findFirst({
-          where: and(
-            eq(shopifyOrders.brandId, brandId),
-            eq(shopifyOrders.shopifyOrderId, bigintToNumber(order.id))
-          ),
-        });
-
-        if (!existing) {
-          // Create new order
-          const [newOrder] = await db
-            .insert(shopifyOrders)
-            .values({
-              brandId,
-              shopifyOrderId: bigintToNumber(order.id),
-              orderNumber: order.order_number.toString(),
-              emailHash: hashEmail(order.email),
-              subtotalPrice: order.subtotal_price,
-              totalShipping: order.total_shipping_price_set.shop_money.amount,
-              totalTax: order.total_tax,
-              totalPrice: order.total_price,
-              totalDiscounts: order.total_discounts,
-              paymentGateway: order.payment_gateway_names[0] || null,
-              financialStatus: order.financial_status,
-              fulfillmentStatus: order.fulfillment_status || null,
-              processedAt: order.processed_at ? new Date(order.processed_at) : null,
-            })
-            .returning();
-          created++;
-
-          // Calculate and store transaction fees
-          for (const gateway of order.payment_gateway_names) {
-            const fee = calculateTransactionFee(
-              parseFloat(order.total_price),
-              gateway
-            );
-            await db.insert(transactionFees).values({
-              orderId: newOrder.id,
-              gateway,
-              feePercentage: fee.percentage.toString(),
-              feeFixed: fee.fixed.toString(),
-              feeAmount: fee.amount.toString(),
-            });
-          }
-
-          // Sync line items
-          for (const item of order.line_items) {
-            await db.insert(shopifyOrderItems).values({
-              orderId: newOrder.id,
-              shopifyLineItemId: bigintToNumber(item.id),
-              variantId: item.variant_id
-                ? await db.query.shopifyVariants
-                    .findFirst({
-                      where: eq(shopifyVariants.shopifyVariantId, bigintToNumber(item.variant_id)),
-                      columns: { id: true },
-                    })
-                    .then((v) => v?.id || null)
-                : null,
-              title: item.title,
-              quantity: item.quantity.toString(),
-              price: item.price,
-              costPerItem: item.variant?.inventory_item?.cost || null,
-              totalCost: item.variant?.inventory_item?.cost
-                ? (parseFloat(item.variant.inventory_item.cost) * item.quantity).toString()
-                : null,
-            });
-          }
-
-          // Handle refunds
-          if (order.refunds.length > 0) {
-            const totalRefund = order.refunds.reduce(
-              (sum, refund) =>
-                sum +
-                refund.transactions.reduce(
-                  (tSum, t) => tSum + parseFloat(t.amount),
-                  0
-                ),
-              0
-            );
-            await db
-              .update(shopifyOrders)
-              .set({ refundAmount: totalRefund.toString() })
-              .where(eq(shopifyOrders.id, newOrder.id));
-          }
-        } else {
-          // Update existing order if needed
-          await db
-            .update(shopifyOrders)
-            .set({
-              financialStatus: order.financial_status,
-              fulfillmentStatus: order.fulfillment_status || null,
-              updatedAt: new Date(),
-            })
-            .where(eq(shopifyOrders.id, existing.id));
-          updated++;
-        }
-      } catch (error) {
-        console.error(`Error syncing order ${order.id}:`, error);
-        errors++;
-      }
+        const result = await persistShopifyOrder(brandId, order);
+        if (result.created) created++; else updated++;
+      } catch (error) { errors++; console.error("Order sync failed", String(order.id), error instanceof Error ? error.message : "Unknown error"); }
     }
   } catch (error) {
     console.error("Error fetching orders:", error);

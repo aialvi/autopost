@@ -1,3 +1,5 @@
+import { protectSecret, safeConnection } from "@/lib/platforms/connection-secrets";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { platformConnections } from "@/lib/db/schema";
@@ -12,6 +14,8 @@ interface RouteContext {
 
 export async function GET(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -36,8 +40,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     }
 
     // Don't expose the full access token
-    const { accessToken, ...safeConnection } = connection;
-    return NextResponse.json({ connected: true, connection: safeConnection });
+    return NextResponse.json({ connected: true, connection: safeConnection(connection) });
   } catch (error) {
     console.error("Error fetching Snapchat connection:", error);
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
@@ -46,6 +49,8 @@ export async function GET(req: Request, { params }: RouteContext) {
 
 export async function POST(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {
@@ -59,16 +64,16 @@ export async function POST(req: Request, { params }: RouteContext) {
 
   try {
     const body = await req.json();
-    const { clientId, clientSecret, accessToken, refreshToken } = body;
+    const { clientId, clientSecret, accessToken, refreshToken, accountId } = body;
 
-    if (!clientId || !clientSecret || !accessToken) {
+    if (!clientId || !clientSecret || !accessToken || !accountId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     // Validate credentials by making a test request
     const client = new SnapchatClient({ clientId, clientSecret, accessToken, refreshToken });
     try {
-      const campaigns = await client.getCampaigns();
+      await client.getAdAccount(accountId);
       // If we get here, credentials are valid
     } catch (error) {
       return NextResponse.json({ error: "Invalid Snapchat credentials" }, { status: 400 });
@@ -82,9 +87,9 @@ export async function POST(req: Request, { params }: RouteContext) {
       ),
     });
 
-    const metadata: Record<string, string> = { clientId, clientSecret };
+    const metadata: Record<string, string> = { clientId, clientSecret: protectSecret(clientSecret) };
     if (refreshToken) {
-      metadata.refreshToken = refreshToken;
+      metadata.refreshToken = protectSecret(refreshToken);
     }
 
     if (existing) {
@@ -92,9 +97,9 @@ export async function POST(req: Request, { params }: RouteContext) {
       await db
         .update(platformConnections)
         .set({
-          accountId: clientId,
-          accessToken,
-          refreshToken,
+          accountId,
+          accessToken: protectSecret(accessToken),
+          refreshToken: refreshToken ? protectSecret(refreshToken) : null,
           status: "active",
           lastSyncedAt: new Date(),
           updatedAt: new Date(),
@@ -106,9 +111,9 @@ export async function POST(req: Request, { params }: RouteContext) {
       await db.insert(platformConnections).values({
         brandId,
         platform: "snapchat",
-        accountId: clientId,
-        accessToken,
-        refreshToken,
+        accountId,
+        accessToken: protectSecret(accessToken),
+        refreshToken: refreshToken ? protectSecret(refreshToken) : null,
         status: "active",
         lastSyncedAt: new Date(),
         metadata,
@@ -124,6 +129,8 @@ export async function POST(req: Request, { params }: RouteContext) {
 
 export async function DELETE(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   const { id: brandId } = await params;
 
   if (!session?.user?.id) {

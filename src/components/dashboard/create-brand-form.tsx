@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { setCurrentBrand } from "@/lib/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,8 @@ export function CreateBrandForm() {
       }
 
       const brand = await response.json();
-      router.push(`/dashboard/brands/${brand.id}`);
+      const selection = await setCurrentBrand(brand.id);
+      router.push(selection.error ? `/dashboard/brands/${brand.id}` : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create brand");
     } finally {
@@ -123,14 +125,14 @@ export function CreateBrandForm() {
           </div>
 
           {error && (
-            <div className="text-sm text-destructive">{error}</div>
+            <div role="alert" className="text-sm text-destructive">{error}</div>
           )}
 
           <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.back()}
+              onClick={() => router.push("/dashboard/brands")}
               disabled={isLoading}
             >
               Cancel

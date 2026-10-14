@@ -1,3 +1,4 @@
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getBotInfo } from "@/lib/telegram/client";
@@ -7,6 +8,8 @@ import { getBotInfo } from "@/lib/telegram/client";
  */
 export async function GET(req: Request) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

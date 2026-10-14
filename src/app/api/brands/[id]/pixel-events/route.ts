@@ -1,3 +1,4 @@
+import { isDemoBrand } from "@/lib/demo/config";
 import { NextRequest, NextResponse } from "next/server";
 import { trackPixelEvent } from "@/lib/attribution/tracking";
 import { randomUUID } from "crypto";
@@ -16,6 +17,8 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    if (isDemoBrand(body.brandId)) return NextResponse.json({ error: "The demo workspace is read-only." }, { status: 403 });
 
     // Generate event ID if not provided
     const eventId = body.eventId || randomUUID();

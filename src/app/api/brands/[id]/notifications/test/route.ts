@@ -1,3 +1,4 @@
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasBrandAccess } from "@/lib/auth";
@@ -12,6 +13,8 @@ interface RouteContext {
  */
 export async function POST(req: Request, { params }: RouteContext) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,7 +22,7 @@ export async function POST(req: Request, { params }: RouteContext) {
   const { id: brandId } = await params;
 
   const role = await hasBrandAccess(session.user.id, brandId);
-  if (role === "viewer") {
+  if (!role || role === "viewer") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

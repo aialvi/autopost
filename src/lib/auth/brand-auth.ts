@@ -1,5 +1,5 @@
+import { isDemoBrand, isDemoUser } from "@/lib/demo/config";
 import { db } from "@/lib/db";
-import { brandUsers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import type { BrandUserRole } from "@/lib/validators";
 
@@ -7,6 +7,8 @@ export async function hasBrandAccess(
   userId: string,
   brandId: string
 ): Promise<BrandUserRole | null> {
+  if (isDemoUser(userId)) return isDemoBrand(brandId) ? "viewer" : null;
+  if (isDemoBrand(brandId)) return null;
   const brandUser = await db.query.brandUsers.findFirst({
     where: (brandUsers, { and }) =>
       and(eq(brandUsers.userId, userId), eq(brandUsers.brandId, brandId)),

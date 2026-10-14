@@ -1,4 +1,6 @@
-import { cookies } from "next/headers";
+import { isDemoUser } from "@/lib/demo/config";
+import { getDemoSubscription } from "@/lib/demo/data";
+import { getActiveBrandId } from "@/lib/demo/active-brand";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getUserBrands } from "@/lib/actions";
@@ -7,8 +9,7 @@ import { BillingOverview } from "@/components/billing/billing-overview";
 import { getBrandSubscription } from "@/lib/payments/management";
 
 export default async function BillingPage() {
-  const cookieStore = await cookies();
-  const brandId = cookieStore.get("currentBrandId")?.value;
+  const brandId = await getActiveBrandId();
 
   if (!brandId) {
     redirect("/dashboard");
@@ -29,7 +30,7 @@ export default async function BillingPage() {
     redirect("/dashboard");
   }
 
-  const subscription = await getBrandSubscription(brandId);
+  const subscription = isDemoUser(session.user.id) ? getDemoSubscription() : await getBrandSubscription(brandId);
 
   return (
     <div className="space-y-6">

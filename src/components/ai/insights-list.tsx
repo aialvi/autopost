@@ -2,10 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
-  TrendingUp,
-  TrendingDown,
   AlertCircle,
   Lightbulb,
   CheckCircle2,
@@ -50,12 +47,7 @@ const typeConfig = {
   },
 };
 
-const categoryColors = {
-  performance: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  trend: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  opportunity: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  warning: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-};
+
 
 export function InsightsList({ insights }: InsightsListProps) {
   const [expandedInsight, setExpandedInsight] = useState<string | null>(null);
@@ -101,8 +93,8 @@ export function InsightsList({ insights }: InsightsListProps) {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="font-medium text-sm">{insight.title}</h4>
+                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                      <h4 className="text-sm font-semibold leading-5">{insight.title}</h4>
                       <Badge className="text-xs" variant="outline">
                         {insight.category}
                       </Badge>

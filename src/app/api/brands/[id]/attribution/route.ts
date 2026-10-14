@@ -1,3 +1,5 @@
+import { DateRangeError, getDates } from "@/lib/profit/metrics";
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasBrandAccess } from "@/lib/auth";
@@ -15,6 +17,8 @@ export async function GET(
   { params }: RouteContext
 ) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -37,6 +41,7 @@ export async function GET(
       | "time_decay"
       | "position_based";
 
+    getDates({ startDate, endDate });
     const attribution = await getBrandAttribution(brandId, startDate, endDate, model);
 
     return NextResponse.json({
@@ -45,6 +50,7 @@ export async function GET(
       ...attribution,
     });
   } catch (error) {
+    if (error instanceof DateRangeError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("Error fetching attribution data:", error);
     return NextResponse.json(
       { error: "Failed to fetch attribution data" },

@@ -1,256 +1,71 @@
 import Link from "next/link";
+import { AutoPostLogo } from "@/components/ui/autopost-logo";
+import { ArrowRight, Layers3, ChartNoAxesCombined, BellRing, Check } from "lucide-react";
+import { MarketingNavbar } from "@/components/marketing/marketing-navbar";
+import { MarketingHero } from "@/components/marketing/marketing-hero";
+import { IntegrationStrip } from "@/components/marketing/integration-strip";
+import { FeatureSections } from "@/components/marketing/feature-section";
+import { Reveal } from "@/components/marketing/reveal";
+
+const steps = [
+  { title: "Connect your accounts", copy: "Create a brand, connect Shopify, and add the ad accounts you want to track." },
+  { title: "Bring your numbers together", copy: "Sync orders and ad spend. Add product costs and expenses for a clearer picture of profit." },
+  { title: "Make your next move", copy: "Compare performance, review recommendations, and set up Telegram summaries and alerts." },
+];
+const benefits = [
+  { icon: Layers3, title: "Less switching. More clarity.", copy: "Keep each brand’s accounts and reporting together, with a shared view when you need to compare." },
+  { icon: ChartNoAxesCombined, title: "See what you actually keep.", copy: "Look beyond ROAS. See sales after refunds alongside product costs, fees, expenses, and ad spend." },
+  { icon: BellRing, title: "Know where to focus.", copy: "Spot changes in performance and review practical recommendations before deciding what to do." },
+];
+const questions = [
+  { question: "Can I explore before connecting my accounts?", answer: "Yes. The demo includes three sample brands with Shopify, Meta, Google, TikTok, and Snapchat data. Explore profit, attribution, AI insights, notifications, and billing without connecting an account. The demo is read-only." },
+  { question: "How is profit calculated?", answer: "AutoPost combines Shopify revenue after refunds with product costs, ad spend, estimated payment fees, and the expenses you add. Use your actual product costs or configure a default COGS percentage. Connect accounts in the same currency for consistent reporting." },
+  { question: "Will AI change my campaigns automatically?", answer: "AI provides recommendations for you to review. You stay in control of campaign changes and budgets. AI analysis requires a configured provider; performance rules remain available without one." },
+  { question: "How do Telegram alerts work?", answer: "Connect your Telegram chat and choose daily or weekly summaries and performance alerts. Configure thresholds, your time zone, and quiet hours to receive the updates that matter to you." },
+];
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {/* Header */}
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="text-xl font-semibold tracking-tight text-neutral-900">
-              AutoPost
-            </div>
-            <nav className="flex items-center gap-6">
-              <Link
-                href="/login"
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/register"
-                className="bg-neutral-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-neutral-800 transition-colors"
-              >
-                Get started
-              </Link>
-            </nav>
+    <div className="marketing-page bg-white text-[var(--ap-foreground)]">
+      <a href="#main-content" className="sr-only fixed left-4 top-4 z-[60] rounded-lg bg-white p-3 focus:not-sr-only">Skip to content</a>
+      <MarketingNavbar />
+      <main id="main-content">
+        <MarketingHero />
+        <IntegrationStrip />
+        <div className="border-b border-[var(--ap-border)] bg-white px-5 py-5 text-center text-xs leading-relaxed text-[var(--ap-muted)]">
+          Product previews show illustrative sample data. <Link href="/login?demo=1" className="font-semibold text-[var(--ap-primary-dark)] underline underline-offset-4">Explore the interactive demo <span aria-hidden="true">↗</span></Link>
+        </div>
+        <FeatureSections />
+        <section id="how-it-works" className="bg-[var(--ap-surface)] px-5 py-20 sm:px-8 sm:py-28" aria-labelledby="steps-title">
+          <div className="mx-auto max-w-[1200px]">
+            <Reveal><div className="mx-auto mb-12 max-w-2xl text-center"><p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--ap-primary-dark)]">How it works</p><h2 id="steps-title" className="text-3xl font-bold tracking-tight sm:text-4xl">From scattered data to a clearer decision.</h2><p className="mt-4 text-[var(--ap-muted)]">Connect once. Build a routine around the numbers that matter.</p></div></Reveal>
+            <ol className="grid gap-5 md:grid-cols-3">
+              {steps.map((step, index) => <li key={step.title} className="rounded-2xl border border-[var(--ap-border)] bg-white p-7"><span className="mb-8 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--ap-mint)] text-sm font-semibold text-[var(--ap-primary-dark)]">0{index + 1}</span><h3 className="mb-3 text-lg font-semibold">{step.title}</h3><p className="text-sm leading-relaxed text-[var(--ap-muted)]">{step.copy}</p></li>)}
+            </ol>
           </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-neutral-900 mb-6">
-            Automate your social media & ads
-          </h1>
-          <p className="text-xl text-neutral-600 mb-8 max-w-2xl mx-auto">
-            Connect your store, manage multiple brands, track profits, and let AI
-            optimize your marketing — all in one place.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/register"
-              className="bg-neutral-900 text-white px-6 py-3 rounded-md font-medium hover:bg-neutral-800 transition-colors"
-            >
-              Start free trial
-            </Link>
-            <Link
-              href="/login"
-              className="border border-neutral-300 bg-white px-6 py-3 rounded-md font-medium hover:bg-neutral-50 transition-colors"
-            >
-              Sign in
-            </Link>
+        </section>
+        <section id="benefits" className="px-5 py-20 sm:px-8 sm:py-28" aria-labelledby="benefits-title">
+          <div className="mx-auto max-w-[1200px]">
+            <Reveal><div className="mb-12 max-w-2xl"><p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--ap-primary-dark)]">Built for your day-to-day</p><h2 id="benefits-title" className="text-3xl font-bold tracking-tight sm:text-4xl">More time for your brands.<br />A better view of your business.</h2></div></Reveal>
+            <div className="grid gap-8 md:grid-cols-3">{benefits.map(({ icon: Icon, title, copy }) => <div key={title}><Icon className="mb-5 h-8 w-8 text-[var(--ap-primary-dark)]" aria-hidden="true" /><h3 className="mb-3 text-lg font-semibold">{title}</h3><p className="text-sm leading-relaxed text-[var(--ap-muted)]">{copy}</p></div>)}</div>
           </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-2xl font-semibold text-neutral-900 mb-12 text-center">
-            Everything you need to grow
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="p-6 rounded-lg border border-neutral-200">
-              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
-                <svg
-                  className="w-5 h-5 text-neutral-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Multi-brand Management
-              </h3>
-              <p className="text-neutral-600 text-sm">
-                Manage multiple brands from a single dashboard. Switch between
-                brands instantly.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="p-6 rounded-lg border border-neutral-200">
-              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
-                <svg
-                  className="w-5 h-5 text-neutral-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Shopify Integration
-              </h3>
-              <p className="text-neutral-600 text-sm">
-                Connect your Shopify store in one click. Sync products and orders
-                automatically.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="p-6 rounded-lg border border-neutral-200">
-              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
-                <svg
-                  className="w-5 h-5 text-neutral-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Ad Platform Connections
-              </h3>
-              <p className="text-neutral-600 text-sm">
-                Connect Facebook Ads, Google Ads, and TikTok Ads to manage all
-                your campaigns.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="p-6 rounded-lg border border-neutral-200">
-              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
-                <svg
-                  className="w-5 h-5 text-neutral-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Profit Analytics
-              </h3>
-              <p className="text-neutral-600 text-sm">
-                Track revenue, costs, and profits in real-time. Visualize your
-                growth with detailed charts.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="p-6 rounded-lg border border-neutral-200">
-              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
-                <svg
-                  className="w-5 h-5 text-neutral-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                AI-Powered Insights
-              </h3>
-              <p className="text-neutral-600 text-sm">
-                Get intelligent recommendations, anomaly detection, and trend
-                analysis powered by AI.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="p-6 rounded-lg border border-neutral-200">
-              <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center mb-4">
-                <svg
-                  className="w-5 h-5 text-neutral-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
-                Smart Notifications
-              </h3>
-              <p className="text-neutral-600 text-sm">
-                Stay informed with Telegram notifications for important events
-                and alerts.
-              </p>
-            </div>
+        </section>
+        <section className="border-t border-[var(--ap-border)] bg-[var(--ap-mint-light)] px-5 py-20 sm:px-8" aria-labelledby="faq-title">
+          <div className="mx-auto grid max-w-[1200px] gap-10 lg:grid-cols-[1fr_1.5fr]">
+            <div><p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--ap-primary-dark)]">A few useful answers</p><h2 id="faq-title" className="text-3xl font-bold tracking-tight sm:text-4xl">Before you get started.</h2><p className="mt-4 max-w-sm leading-relaxed text-[var(--ap-muted)]">Get to know the workspace at your own pace.</p></div>
+            <div className="space-y-3">{questions.map(({ question, answer }) => <details key={question} className="group rounded-2xl border border-[var(--ap-border)] bg-white p-5"><summary className="cursor-pointer text-sm font-semibold leading-relaxed">{question}</summary><p className="mt-4 text-sm leading-relaxed text-[var(--ap-muted)]">{answer}</p></details>)}</div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-neutral-900">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-semibold text-white mb-4">
-            Ready to automate your growth?
-          </h2>
-          <p className="text-neutral-400 mb-8">
-            Start your free trial today. No credit card required.
-          </p>
-          <Link
-            href="/register"
-            className="inline-block bg-white text-neutral-900 px-6 py-3 rounded-md font-medium hover:bg-neutral-100 transition-colors"
-          >
-            Get started now
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-8 px-4 sm:px-6 lg:px-8 bg-neutral-100 border-t border-neutral-200">
-        <div className="max-w-7xl mx-auto text-center text-sm text-neutral-500">
-          <p>&copy; {new Date().getFullYear()} AutoPost. All rights reserved.</p>
-        </div>
-      </footer>
+        </section>
+        <section className="px-5 py-16 sm:px-8 sm:py-24" aria-labelledby="cta-title">
+          <div className="relative mx-auto max-w-[1200px] overflow-hidden rounded-3xl bg-[#102c20] px-6 py-14 text-center text-white sm:px-12 sm:py-20">
+            <div className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full border-[50px] border-white/5" aria-hidden="true" />
+            <p className="relative mb-4 text-xs font-semibold uppercase tracking-widest text-emerald-200">Your next chapter starts here</p><h2 id="cta-title" className="relative text-3xl font-bold tracking-tight sm:text-5xl">All your brands.<br />One clearer picture.</h2><p className="relative mx-auto mt-5 max-w-lg text-base leading-relaxed text-emerald-100/80">See the full workspace with sample data, or create an account and start connecting your business.</p>
+            <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/login?demo=1" className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 font-semibold text-[#102c20] hover:bg-emerald-50">Explore the demo <ArrowRight className="h-4 w-4" aria-hidden="true" /></Link><Link href="/register" className="inline-flex items-center justify-center rounded-xl border border-white/30 px-6 py-3.5 font-semibold hover:bg-white/10">Create an account</Link></div>
+            <p className="relative mt-5 inline-flex items-center gap-2 text-xs text-emerald-100/80"><Check className="h-3.5 w-3.5" aria-hidden="true" />No live accounts needed to try the demo</p>
+          </div>
+        </section>
+      </main>
+      <footer className="border-t border-[var(--ap-border)] px-5 py-8 sm:px-8"><div className="mx-auto flex max-w-[1200px] flex-col justify-between gap-6 sm:flex-row sm:items-center"><div><AutoPostLogo /><p className="mt-2 text-xs text-[var(--ap-muted)]">A clearer view of every brand’s performance.</p></div><nav aria-label="Footer" className="flex flex-wrap gap-5 text-sm text-[var(--ap-muted)]"><a href="#features" className="hover:text-[var(--ap-primary-dark)]">Features</a><Link href="/login?demo=1" className="hover:text-[var(--ap-primary-dark)]">Demo</Link><Link href="/login" className="hover:text-[var(--ap-primary-dark)]">Sign in</Link><Link href="/register" className="hover:text-[var(--ap-primary-dark)]">Create account</Link></nav><p className="text-xs text-[var(--ap-muted)]">© {new Date().getFullYear()} AutoPost</p></div></footer>
     </div>
   );
 }

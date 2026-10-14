@@ -117,7 +117,7 @@ export async function getDashboardOverview(
       platform: adCampaigns.platform,
       status: adCampaigns.status,
       totalSpend: sql<number>`CAST(SUM(CAST(${adDataSnapshots.spend} AS FLOAT)) AS FLOAT)`,
-      totalConversions: sql<number>`SUM(${adDataSnapshots.conversions})`,
+      totalRevenue: sql<number>`SUM(${adDataSnapshots.revenueReported})`,
     })
     .from(adCampaigns)
     .innerJoin(adDataSnapshots, eq(adCampaigns.id, adDataSnapshots.campaignId))
@@ -136,7 +136,7 @@ export async function getDashboardOverview(
     name: c.name,
     platform: c.platform,
     spend: parseFloat(c.totalSpend?.toString() || "0"),
-    roas: c.totalSpend > 0 ? (c.totalConversions || 0) * 50 / parseFloat(c.totalSpend?.toString() || "1") : 0,
+    roas: c.totalSpend > 0 ? Number(c.totalRevenue || 0) / parseFloat(c.totalSpend?.toString() || "1") : 0,
     status: c.status,
   }));
 

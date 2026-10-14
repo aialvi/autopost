@@ -1,3 +1,4 @@
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { hasBrandAccess } from "@/lib/auth";
@@ -8,6 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ brandId: string }> }
 ) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, request);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

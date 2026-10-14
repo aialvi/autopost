@@ -1,17 +1,26 @@
+import { isDemoEnabled, isDemoUser } from "@/lib/demo/config";
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 // Define protected and public routes
 const protectedRoutes = ["/dashboard"];
-const publicRoutes = ["/login", "/register", "/"];
 
 export default auth((req) => {
   const { nextUrl } = req;
+  if (isDemoUser(req.auth?.user?.id) && !nextUrl.pathname.startsWith("/api/auth/")) {
+    if (!isDemoEnabled()) {
+      return nextUrl.pathname.startsWith("/api/")
+        ? NextResponse.json({ error: "The demo is currently unavailable." }, { status: 403 })
+        : NextResponse.redirect(new URL("/api/auth/signout", nextUrl));
+    }
+    if (nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD"].includes(req.method)) {
+      return NextResponse.json({ error: "The demo workspace is read-only." }, { status: 403 });
+    }
+  }
   const isLoggedIn = !!req.auth;
   const isProtectedRoute = protectedRoutes.some((route) =>
     nextUrl.pathname.startsWith(route)
   );
-  const isPublicRoute = publicRoutes.some((route) => nextUrl.pathname === route);
   const isAuthRoute = nextUrl.pathname.startsWith("/login") ||
     nextUrl.pathname.startsWith("/register");
 

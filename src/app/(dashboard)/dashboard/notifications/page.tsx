@@ -1,4 +1,6 @@
-import { cookies } from "next/headers";
+import { isDemoUser } from "@/lib/demo/config";
+import { getDemoPreferences } from "@/lib/demo/data";
+import { getActiveBrandId } from "@/lib/demo/active-brand";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getUserBrands } from "@/lib/actions";
@@ -7,8 +9,7 @@ import { NotificationHistory } from "@/components/notifications/notification-his
 import { getNotificationPreferences } from "@/lib/telegram/notifications";
 
 export default async function NotificationsPage() {
-  const cookieStore = await cookies();
-  const brandId = cookieStore.get("currentBrandId")?.value;
+  const brandId = await getActiveBrandId();
 
   if (!brandId) {
     redirect("/dashboard");
@@ -30,7 +31,7 @@ export default async function NotificationsPage() {
   }
 
   // Fetch notification preferences
-  const preferences = await getNotificationPreferences(brandId, session.user.id);
+  const preferences = isDemoUser(session.user.id) ? getDemoPreferences() : await getNotificationPreferences(brandId, session.user.id);
 
   return (
     <div className="space-y-6">

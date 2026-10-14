@@ -1,4 +1,5 @@
-import { cookies } from "next/headers";
+import { getUserBrands } from "@/lib/actions";
+import { getActiveBrandId } from "@/lib/demo/active-brand";
 import { redirect } from "next/navigation";
 import { ProfitOverview } from "./profit-overview";
 
@@ -11,13 +12,14 @@ interface PageProps {
 }
 
 export default async function ProfitPage({ searchParams }: PageProps) {
-  const cookieStore = await cookies();
-  const brandId = cookieStore.get("currentBrandId")?.value;
+  const brandId = await getActiveBrandId();
 
   if (!brandId) {
     redirect("/dashboard/brands");
   }
 
+  const result = await getUserBrands();
+  const currency = result.brands?.find((brand) => brand.id === brandId)?.currency ?? "USD";
   const params = await searchParams;
   const defaultEndDate = new Date();
   const defaultStartDate = new Date();
@@ -40,6 +42,7 @@ export default async function ProfitPage({ searchParams }: PageProps) {
 
       <ProfitOverview
         brandId={brandId}
+        currency={currency}
         startDate={startDate}
         endDate={endDate}
         granularity={granularity}

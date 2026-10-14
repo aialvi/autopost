@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PlatformBreakdownProps {
+  currency?: string;
   breakdown: Record<string, { spend: number; revenue: number; roas: number }>;
 }
 
@@ -13,7 +14,8 @@ const platformInfo: Record<string, { name: string; color: string }> = {
   tiktok: { name: "TikTok", color: "bg-black dark:bg-white" },
 };
 
-export function PlatformBreakdown({ breakdown }: PlatformBreakdownProps) {
+export function PlatformBreakdown({ breakdown, currency = "USD" }: PlatformBreakdownProps) {
+  const money = new Intl.NumberFormat("en-US", { style: "currency", currency });
   const platforms = Object.entries(breakdown);
   const totalSpend = platforms.reduce((sum, [, data]) => sum + data.spend, 0);
 
@@ -22,6 +24,7 @@ export function PlatformBreakdown({ breakdown }: PlatformBreakdownProps) {
       <Card>
         <CardHeader>
           <CardTitle>Platform Breakdown</CardTitle>
+          <p className="text-xs leading-5 text-muted-foreground">Revenue reported by each ad platform. Attribution windows can overlap.</p>
         </CardHeader>
         <CardContent>
           <div className="text-center text-muted-foreground py-8">
@@ -62,14 +65,14 @@ export function PlatformBreakdown({ breakdown }: PlatformBreakdownProps) {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="grid grid-cols-3 gap-3 text-xs">
                   <div>
-                    <span className="text-muted-foreground">Spend:</span>{" "}
-                    <span className="font-medium">${data.spend.toFixed(2)}</span>
+                    <span className="block text-muted-foreground">Spend:</span>{" "}
+                    <span className="font-medium">{money.format(data.spend)}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Revenue:</span>{" "}
-                    <span className="font-medium">${data.revenue.toFixed(2)}</span>
+                    <span className="block text-muted-foreground">Revenue:</span>{" "}
+                    <span className="font-medium">{money.format(data.revenue)}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">ROAS:</span>{" "}
@@ -86,7 +89,7 @@ export function PlatformBreakdown({ breakdown }: PlatformBreakdownProps) {
           <div className="pt-4 border-t">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">Total Ad Spend</span>
-              <span className="font-semibold">${totalSpend.toFixed(2)}</span>
+              <span className="font-semibold">{money.format(totalSpend)}</span>
             </div>
           </div>
         </div>

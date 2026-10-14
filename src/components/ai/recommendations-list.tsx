@@ -152,14 +152,6 @@ export function RecommendationsList({ recommendations, onAction }: Recommendatio
                       <div className="flex gap-2 mt-3">
                         <Button
                           size="sm"
-                          variant="default"
-                          onClick={() => onAction(rec.id, "approve")}
-                          className="flex-1"
-                        >
-                          Apply
-                        </Button>
-                        <Button
-                          size="sm"
                           variant="outline"
                           onClick={() => onAction(rec.id, "decline")}
                           className="flex-1"

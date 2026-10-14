@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
+import { fetchJSON } from "@/lib/utils/fetch-json";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,31 +24,12 @@ interface NotificationHistoryProps {
 }
 
 export function NotificationHistory({ brandId }: NotificationHistoryProps) {
-  const [logs, setLogs] = useState<NotificationLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const limit = 20;
-
-  useEffect(() => {
-    fetchLogs();
-  }, [brandId, page]);
-
-  const fetchLogs = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/brands/${brandId}/notifications/logs?page=${page}&limit=${limit}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs || []);
-      }
-    } catch (error) {
-      console.error("Error fetching notification logs:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const limit = 6;
+  const { data, error, isLoading, mutate } = useSWR<{ logs: NotificationLog[] }>(
+    `/api/brands/${brandId}/notifications/logs?page=${page}&limit=${limit}`, fetchJSON,
+  );
+  const logs = data?.logs ?? [];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -67,7 +50,7 @@ export function NotificationHistory({ brandId }: NotificationHistoryProps) {
         return "destructive";
       case "daily_summary":
       case "weekly_summary":
-        return "default";
+        return "secondary";
       case "new_order":
         return "secondary";
       default:
@@ -94,7 +77,7 @@ export function NotificationHistory({ brandId }: NotificationHistoryProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" />
@@ -102,12 +85,13 @@ export function NotificationHistory({ brandId }: NotificationHistoryProps) {
             </CardTitle>
             <CardDescription>Recent notifications sent for this brand</CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchLogs}>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
             Refresh
           </Button>
         </div>
       </CardHeader>
       <CardContent>
+        {error && <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -121,28 +105,32 @@ export function NotificationHistory({ brandId }: NotificationHistoryProps) {
             {logs.map((log) => (
               <div
                 key={log.id}
-                className="flex items-start gap-3 p-3 rounded-lg border bg-card"
+                className="flex items-start gap-3 rounded-xl border bg-card p-4"
               >
-                <div className="mt-0.5">{getStatusIcon(log.status)}</div>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted" aria-label={`Delivery ${log.status}`}>{getStatusIcon(log.status)}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-sm">{log.title}</span>
-                    <Badge variant={getTypeColor(log.type)} className="text-xs">
+                  <p className="text-sm font-semibold leading-5">{log.title}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge variant={getTypeColor(log.type)} className="capitalize">
                       {log.type.replace(/_/g, " ")}
                     </Badge>
+                    <span className="text-xs capitalize text-muted-foreground">{log.channel}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {log.message}
-                  </p>
-                  {log.error && (
-                    <p className="text-xs text-red-500 mt-1">{log.error}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {formatDate(log.sentAt)}
-                  </p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{log.message}</p>
+                  {log.error && <p className="mt-2 text-xs leading-5 text-red-600">{log.error}</p>}
+                  <p className="mt-3 text-xs text-muted-foreground">{formatDate(log.sentAt)}</p>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {!isLoading && (logs.length > 0 || page > 1) && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <p className="text-xs text-muted-foreground">Page {page}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((current) => current - 1)}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={logs.length < limit} onClick={() => setPage((current) => current + 1)}>Next</Button>
+            </div>
           </div>
         )}
       </CardContent>

@@ -1,3 +1,4 @@
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { brands, brandUsers } from "@/lib/db/schema";
@@ -6,8 +7,10 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { generateUniqueSlug } from "@/lib/utils/slug";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,6 +42,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, req);
+  if (demoResponse) return demoResponse;
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

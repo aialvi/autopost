@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetchJSON } from "@/lib/utils/fetch-json";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,39 +24,18 @@ interface CAPIEventsListProps {
 }
 
 export function CAPIEventsList({ brandId }: CAPIEventsListProps) {
-  const [events, setEvents] = useState<CAPIEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [platformFilter, setPlatformFilter] = useState<string>("all");
-
-  useEffect(() => {
-    fetchEvents();
-  }, [brandId, platformFilter]);
-
-  const fetchEvents = async () => {
-    setIsLoading(true);
-    try {
-      const url = new URL(`/api/brands/${brandId}/capi`, window.location.origin);
-      if (platformFilter !== "all") {
-        url.searchParams.set("platform", platformFilter);
-      }
-
-      const response = await fetch(url.toString());
-      if (response.ok) {
-        const data = await response.json();
-        setEvents(data.events || []);
-      }
-    } catch (error) {
-      console.error("Error fetching CAPI events:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const query = platformFilter === "all" ? "" : `?platform=${platformFilter}`;
+  const { data, error, isLoading, mutate } = useSWR<{ events: CAPIEvent[] }>(
+    `/api/brands/${brandId}/capi${query}`, fetchJSON,
+  );
+  const events = data?.events ?? [];
 
   const formatEventName = (name: string) => {
     return name.replace(/([A-Z])/g, " $1").trim();
   };
 
-  const formatResponse = (status: string, body: string) => {
+  const formatResponse = (status: string) => {
     if (status === "200" || status === "201") {
       return (
         <div className="flex items-center gap-1 text-green-600">
@@ -87,14 +68,14 @@ export function CAPIEventsList({ brandId }: CAPIEventsListProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>CAPI Events</CardTitle>
             <CardDescription>Recent Conversion API events sent to platforms</CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <Select value={platformFilter} onValueChange={setPlatformFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger aria-label="CAPI platform" className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -105,13 +86,14 @@ export function CAPIEventsList({ brandId }: CAPIEventsListProps) {
                 <SelectItem itemValue="tiktok">TikTok</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" onClick={fetchEvents}>
+            <Button variant="outline" size="icon" aria-label="Refresh CAPI events" onClick={() => mutate()}>
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent>
+        {error && <p role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -125,7 +107,7 @@ export function CAPIEventsList({ brandId }: CAPIEventsListProps) {
             {events.map((event) => (
               <div
                 key={event.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-card"
               >
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="capitalize">
@@ -141,7 +123,7 @@ export function CAPIEventsList({ brandId }: CAPIEventsListProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  {formatResponse(event.responseStatus, event.responseBody)}
+                  {formatResponse(event.responseStatus)}
                   <div className="text-xs text-muted-foreground min-w-[50px] text-right">
                     {formatDate(event.sentAt)}
                   </div>

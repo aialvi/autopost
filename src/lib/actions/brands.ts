@@ -1,14 +1,17 @@
 "use server";
 
+import { isDemoBrand, isDemoUser } from "@/lib/demo/config";
+import { getDemoBrands } from "@/lib/demo/data";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { brands, brandUsers } from "@/lib/db/schema";
 import { createBrandSchema, updateBrandSchema } from "@/lib/validators";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { generateUniqueSlug } from "@/lib/utils/slug";
 import { hasBrandAccess } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 export async function getUserBrands() {
   const session = await auth();
@@ -16,6 +19,8 @@ export async function getUserBrands() {
   if (!session?.user?.id) {
     return { error: "Unauthorized" };
   }
+
+  if (isDemoUser(session.user.id)) return { brands: getDemoBrands() };
 
   try {
     const userBrands = await db.query.brandUsers.findMany({
@@ -44,6 +49,12 @@ export async function getBrand(brandId: string) {
     return { error: "Unauthorized" };
   }
 
+  if (isDemoUser(session.user.id)) {
+    const brand = getDemoBrands().find((item) => item.id === brandId);
+    return brand ? { brand, userRole: "viewer" as const } : { error: "Forbidden" };
+  }
+  if (isDemoBrand(brandId)) return { error: "Forbidden" };
+
   try {
     const brandAccess = await hasBrandAccess(session.user.id, brandId);
     if (!brandAccess) {
@@ -71,6 +82,8 @@ export async function createBrand(formData: FormData) {
   if (!session?.user?.id) {
     return { error: "Unauthorized" };
   }
+
+  if (isDemoUser(session.user.id)) return { error: "The demo workspace is read-only." };
 
   try {
     const name = formData.get("name") as string;
@@ -134,6 +147,8 @@ export async function updateBrand(brandId: string, formData: FormData) {
     return { error: "Unauthorized" };
   }
 
+  if (isDemoUser(session.user.id)) return { error: "The demo workspace is read-only." };
+
   try {
     const brandAccess = await hasBrandAccess(session.user.id, brandId);
     if (!brandAccess || brandAccess === "viewer") {
@@ -184,6 +199,8 @@ export async function deleteBrand(brandId: string) {
     return { error: "Unauthorized" };
   }
 
+  if (isDemoUser(session.user.id)) return { error: "The demo workspace is read-only." };
+
   try {
     const brandAccess = await hasBrandAccess(session.user.id, brandId);
     if (brandAccess !== "owner") {
@@ -213,9 +230,16 @@ export async function setCurrentBrand(brandId: string) {
       return { error: "Forbidden" };
     }
 
-    // In a real app, this would set the brand in user preferences
-    // For now, we'll redirect to the brand dashboard
-    redirect(`/dashboard/brands/${brandId}`);
+    const cookieStore = await cookies();
+    cookieStore.set("currentBrandId", brandId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    revalidatePath("/dashboard", "layout");
+    return { success: true };
   } catch (error) {
     console.error("Error setting current brand:", error);
     return { error: "Failed to set current brand" };

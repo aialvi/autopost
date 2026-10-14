@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { getActiveBrandId } from "@/lib/demo/active-brand";
 import { redirect } from "next/navigation";
 import { AIInsights } from "./ai-insights";
 
@@ -10,8 +10,7 @@ interface PageProps {
 }
 
 export default async function AIInsightsPage({ searchParams }: PageProps) {
-  const cookieStore = await cookies();
-  const brandId = cookieStore.get("currentBrandId")?.value;
+  const brandId = await getActiveBrandId();
 
   if (!brandId) {
     redirect("/dashboard/brands");

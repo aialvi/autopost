@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetchJSON } from "@/lib/utils/fetch-json";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle,
-  XCircle,
-  Clock,
   CreditCard,
   Download,
   Loader2,
@@ -29,41 +27,15 @@ interface BillingOverviewProps {
 }
 
 export function BillingOverview({ brandId }: BillingOverviewProps) {
-  const [subscription, setSubscription] = useState<{
-    tier: string;
-    status: string;
-    currentPeriodEnd: Date | null;
-    cancelAtPeriodEnd: boolean;
-  } | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetchData();
-  }, [brandId]);
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch subscription
-      const subResponse = await fetch(`/api/brands/${brandId}/billing/subscription`);
-      if (subResponse.ok) {
-        const data = await subResponse.json();
-        setSubscription(data);
-      }
-
-      // Fetch invoices
-      const invResponse = await fetch(`/api/brands/${brandId}/billing/invoices`);
-      if (invResponse.ok) {
-        const data = await invResponse.json();
-        setInvoices(data.invoices || []);
-      }
-    } catch (error) {
-      console.error("Error fetching billing data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: subscription, error: subscriptionError, isLoading: subscriptionLoading } = useSWR<{
+    tier: string; status: string; currentPeriodEnd: Date | null; cancelAtPeriodEnd: boolean;
+  }>(`/api/brands/${brandId}/billing/subscription`, fetchJSON);
+  const { data, error: invoicesError, isLoading: invoicesLoading } = useSWR<{ invoices: Invoice[] }>(
+    `/api/brands/${brandId}/billing/invoices`, fetchJSON,
+  );
+  const invoices = data?.invoices ?? [];
+  const isLoading = subscriptionLoading || invoicesLoading;
+  const error = subscriptionError || invoicesError;
 
   const formatCurrency = (amount: number, currency = "USD") => {
     return new Intl.NumberFormat("en-US", {
@@ -83,7 +55,7 @@ export function BillingOverview({ brandId }: BillingOverviewProps) {
       case "paid":
         return (
           <Badge variant="default" className="bg-green-500">
-            Active
+            {status === "paid" ? "Paid" : "Active"}
           </Badge>
         );
       case "trialing":
@@ -117,6 +89,7 @@ export function BillingOverview({ brandId }: BillingOverviewProps) {
 
   return (
     <div className="space-y-6">
+      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
       {/* Subscription Status */}
       {subscription && (
         <Card>
@@ -125,7 +98,7 @@ export function BillingOverview({ brandId }: BillingOverviewProps) {
             <CardDescription>Your current billing status</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-bold capitalize">
@@ -172,7 +145,7 @@ export function BillingOverview({ brandId }: BillingOverviewProps) {
               {invoices.map((invoice) => (
                 <div
                   key={invoice.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                  className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-card"
                 >
                   <div className="flex items-center gap-3">
                     <CreditCard className="h-5 w-5 text-muted-foreground" />

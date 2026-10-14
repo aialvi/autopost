@@ -2,9 +2,9 @@ import { z } from "zod";
 
 export const createBrandSchema = z.object({
   name: z.string().min(2, "Brand name must be at least 2 characters").max(50),
-  timezone: z.string().default("UTC"),
-  currency: z.string().default("USD"),
-  defaultCogsPercentage: z.string().default("0.00"),
+  timezone: z.string().refine((value) => { try { new Intl.DateTimeFormat("en-US", { timeZone: value }); return true; } catch { return false; } }, "Choose a valid timezone").default("UTC"),
+  currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter currency code").default("USD"),
+  defaultCogsPercentage: z.string().refine((value) => value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100, "Product cost must be between 0 and 100 percent").default("0.00"),
 });
 
 export const updateBrandSchema = createBrandSchema.partial().extend({

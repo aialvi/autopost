@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetchJSON } from "@/lib/utils/fetch-json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,58 +14,26 @@ import { Loader2, Calendar } from "lucide-react";
 
 interface ProfitOverviewProps {
   brandId: string;
+  currency?: string;
   startDate: string;
   endDate: string;
   granularity: string;
 }
 
-export function ProfitOverview({ brandId, startDate, endDate, granularity }: ProfitOverviewProps) {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{
-    metrics?: ProfitMetrics;
-    chartData?: DailyProfitData[];
-    breakdown?: Record<string, { spend: number; revenue: number; roas: number }>;
-  }>({});
-  const [error, setError] = useState<string | null>(null);
-
-  // Date range state
+export function ProfitOverview({ brandId, startDate, endDate, granularity, currency = "USD" }: ProfitOverviewProps) {
+  const formatMoney = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
   const [dateRange, setDateRange] = useState({ startDate, endDate });
   const [granularityValue, setGranularityValue] = useState(granularity);
-
-  useEffect(() => {
-    fetchData();
-  }, [brandId, dateRange, granularityValue]);
-
-  async function fetchData() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        granularity: granularityValue,
-        includeBreakdown: "true",
-      });
-
-      const response = await fetch(`/api/brands/${brandId}/profit?${params}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch profit data");
-      }
-
-      setData({
-        metrics: granularityValue === "overall" ? result.data as ProfitMetrics : undefined,
-        chartData: granularityValue !== "overall" ? result.data as DailyProfitData[] : undefined,
-        breakdown: result.breakdown,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch profit data");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const params = new URLSearchParams({ ...dateRange, granularity: granularityValue, includeBreakdown: "true" });
+  const { data: response, error, isLoading: loading, mutate } = useSWR<{
+    data: ProfitMetrics | DailyProfitData[];
+    breakdown?: Record<string, { spend: number; revenue: number; roas: number }>;
+  }>(`/api/brands/${brandId}/profit?${params}`, fetchJSON);
+  const data = {
+    metrics: response && !Array.isArray(response.data) ? response.data : undefined,
+    chartData: response && Array.isArray(response.data) ? response.data : undefined,
+    breakdown: response?.breakdown,
+  };
 
   function handlePreset(days: number) {
     const end = new Date();
@@ -74,25 +44,6 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity }: Pro
       startDate: start.toISOString().split("T")[0],
       endDate: end.toISOString().split("T")[0],
     });
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-destructive">{error}</p>
-        <Button onClick={fetchData} variant="outline" className="mt-4">
-          Retry
-        </Button>
-      </div>
-    );
   }
 
   return (
@@ -128,7 +79,7 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity }: Pro
           </Button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div>
             <Label htmlFor="startDate" className="sr-only">Start Date</Label>
             <Input
@@ -153,10 +104,10 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity }: Pro
         </div>
 
         <Select value={granularityValue} onValueChange={setGranularityValue}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Granularity" value={granularityValue} />
+          <SelectTrigger aria-label="Profit granularity" className="w-[140px]">
+            <SelectValue placeholder="Granularity" />
           </SelectTrigger>
-          <SelectContent value={granularityValue} onValueChange={setGranularityValue}>
+          <SelectContent>
             <SelectItem itemValue="daily">Daily</SelectItem>
             <SelectItem itemValue="weekly">Weekly</SelectItem>
             <SelectItem itemValue="monthly">Monthly</SelectItem>
@@ -165,39 +116,41 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity }: Pro
         </Select>
       </div>
 
+      {loading && <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading profit report…</p>}
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error.message}<Button onClick={() => mutate()} variant="outline" size="sm" className="ml-3">Retry</Button></div>}
       {/* Content */}
       {data.metrics && (
-        <ProfitMetricsCard metrics={data.metrics} />
+        <ProfitMetricsCard metrics={data.metrics} currency={currency} />
       )}
 
       {data.chartData && data.chartData.length > 0 && (
         <>
-          <ProfitChart data={data.chartData} />
+          <ProfitChart data={data.chartData} currency={currency} />
 
           {/* Summary metrics for period */}
           <div className="grid gap-4 md:grid-cols-4">
             <div className="p-4 rounded-lg border bg-card">
               <div className="text-sm text-muted-foreground">Total Revenue</div>
               <div className="text-2xl font-semibold mt-1">
-                ${data.chartData.reduce((sum, d) => sum + d.metrics.revenue, 0).toFixed(2)}
+                {formatMoney(data.chartData.reduce((sum, d) => sum + d.metrics.revenue, 0))}
               </div>
             </div>
             <div className="p-4 rounded-lg border bg-card">
               <div className="text-sm text-muted-foreground">Net Profit</div>
               <div className="text-2xl font-semibold mt-1">
-                ${data.chartData.reduce((sum, d) => sum + d.metrics.netProfit, 0).toFixed(2)}
+                {formatMoney(data.chartData.reduce((sum, d) => sum + d.metrics.netProfit, 0))}
               </div>
             </div>
             <div className="p-4 rounded-lg border bg-card">
               <div className="text-sm text-muted-foreground">Ad Spend</div>
               <div className="text-2xl font-semibold mt-1">
-                ${data.chartData.reduce((sum, d) => sum + d.metrics.adSpend, 0).toFixed(2)}
+                {formatMoney(data.chartData.reduce((sum, d) => sum + d.metrics.adSpend, 0))}
               </div>
             </div>
             <div className="p-4 rounded-lg border bg-card">
               <div className="text-sm text-muted-foreground">Orders</div>
               <div className="text-2xl font-semibold mt-1">
-                {data.chartData.reduce((sum, d) => sum + (d.metrics.orders || 0), 0)}
+                {data.chartData.reduce((sum, d) => sum + (d.metrics.orders || 0), 0).toLocaleString()}
               </div>
             </div>
           </div>
@@ -205,7 +158,7 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity }: Pro
       )}
 
       {data.breakdown && (
-        <PlatformBreakdown breakdown={data.breakdown} />
+        <PlatformBreakdown breakdown={data.breakdown} currency={currency} />
       )}
     </div>
   );

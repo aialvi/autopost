@@ -1,3 +1,6 @@
+import { calculateProfitMetrics } from "@/lib/profit/calculations";
+import { isDemoUser } from "@/lib/demo/config";
+import { getDemoProfit } from "@/lib/demo/data";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { hasBrandAccess } from "@/lib/auth";
@@ -32,7 +35,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
           <CardHeader>
             <CardTitle>Brand Not Found</CardTitle>
             <CardDescription>
-              The brand you're looking for doesn't exist
+              The brand you’re looking for doesn’t exist
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -46,6 +49,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
   }
 
   const { brand, userRole } = result;
+  const demo = isDemoUser(session.user.id);
+  const now = new Date();
+  const sample = demo ? getDemoProfit(id, new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10), now.toISOString().slice(0, 10), "overall").data : null;
+  const metrics = sample && !Array.isArray(sample) ? sample : await calculateProfitMetrics(id, { startDate: new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10), endDate: now.toISOString().slice(0, 10) });
+  const money = new Intl.NumberFormat("en-US", { style: "currency", currency: brand.currency });
 
   return (
     <div className="space-y-6">
@@ -67,8 +75,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <CardTitle>Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">$0.00</div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <div className="text-2xl font-semibold">{money.format(metrics?.revenue ?? 0)}</div>
+            <p className="text-xs text-muted-foreground">{demo ? "Last 30 days · Sample data" : "Last 30 days"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -76,8 +84,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <CardTitle>Ad Spend</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">$0.00</div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <div className="text-2xl font-semibold">{money.format(metrics?.adSpend ?? 0)}</div>
+            <p className="text-xs text-muted-foreground">{demo ? "Last 30 days · Sample data" : "Last 30 days"}</p>
           </CardContent>
         </Card>
         <Card>
@@ -85,8 +93,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <CardTitle>Profit</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">$0.00</div>
-            <p className="text-xs text-muted-foreground">All time</p>
+            <div className="text-2xl font-semibold">{money.format(metrics?.netProfit ?? 0)}</div>
+            <p className="text-xs text-muted-foreground">{demo ? "Last 30 days · Sample data" : "Last 30 days"}</p>
           </CardContent>
         </Card>
       </div>

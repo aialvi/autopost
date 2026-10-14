@@ -1,12 +1,16 @@
+import { auth } from "@/lib/auth";
+import { isDemoUser } from "@/lib/demo/config";
 import { getUserBrands } from "@/lib/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { SelectBrandButton } from "@/components/dashboard/select-brand-button";
 
 export default async function BrandsPage() {
   const result = await getUserBrands();
+  const demo = isDemoUser((await auth())?.user?.id);
 
-  if (result.error || !result.brands) {
+  if (result.error || !result.brands || result.brands.length === 0) {
     return (
       <div className="max-w-md mx-auto">
         <Card>
@@ -28,16 +32,16 @@ export default async function BrandsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Brands</h1>
           <p className="text-muted-foreground">
             Manage your brands and settings
           </p>
         </div>
-        <Button asChild>
+        {!demo && <Button asChild>
           <Link href="/dashboard/brands/new">Create Brand</Link>
-        </Button>
+        </Button>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -65,9 +69,7 @@ export default async function BrandsPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm" className="flex-1" asChild>
-                  <Link href={`/dashboard/brands/${brand.id}`}>View</Link>
-                </Button>
+                <SelectBrandButton brandId={brand.id} />
                 <Button variant="outline" size="sm" className="flex-1" asChild>
                   <Link href={`/dashboard/brands/${brand.id}/settings`}>Settings</Link>
                 </Button>

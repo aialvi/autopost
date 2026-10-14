@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Percent } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Percent, type LucideIcon } from "lucide-react";
 
 export interface ProfitMetrics {
   revenue: number;
@@ -22,6 +22,7 @@ export interface ProfitMetrics {
 interface ProfitMetricsCardProps {
   metrics: ProfitMetrics;
   previousMetrics?: ProfitMetrics;
+  currency?: string;
 }
 
 function MetricCard({
@@ -33,6 +34,7 @@ function MetricCard({
   decimals = 2,
   icon: Icon,
   invertColor = false,
+  currency = "USD",
 }: {
   label: string;
   value: number;
@@ -40,10 +42,11 @@ function MetricCard({
   prefix?: string;
   suffix?: string;
   decimals?: number;
-  icon?: any;
+  icon?: LucideIcon;
   invertColor?: boolean;
+  currency?: string;
 }) {
-  const change = previous !== undefined ? ((value - previous) / previous) * 100 : 0;
+  const change = previous !== undefined && previous !== 0 ? ((value - previous) / previous) * 100 : 0;
   const isPositive = change >= 0;
 
   return (
@@ -69,29 +72,27 @@ function MetricCard({
         )}
       </div>
       <div className="mt-2 text-2xl font-semibold">
-        {prefix}
-        {value.toLocaleString(undefined, {
-          minimumFractionDigits: decimals,
-          maximumFractionDigits: decimals,
-        })}
+        {prefix === "$" ? new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value) : `${prefix}${value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`}
         {suffix}
       </div>
     </div>
   );
 }
 
-export function ProfitMetricsCard({ metrics, previousMetrics }: ProfitMetricsCardProps) {
+export function ProfitMetricsCard({ metrics, previousMetrics, currency = "USD" }: ProfitMetricsCardProps) {
   return (
     <div className="space-y-4">
       {/* Primary Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
+          currency={currency}
           label="Revenue"
           value={metrics.revenue}
           previous={previousMetrics?.revenue}
           icon={DollarSign}
         />
         <MetricCard
+          currency={currency}
           label="Net Profit"
           value={metrics.netProfit}
           previous={previousMetrics?.netProfit}
@@ -99,6 +100,7 @@ export function ProfitMetricsCard({ metrics, previousMetrics }: ProfitMetricsCar
           invertColor
         />
         <MetricCard
+          currency={currency}
           label="Profit Margin"
           value={metrics.profitMargin}
           previous={previousMetrics?.profitMargin}
@@ -109,6 +111,7 @@ export function ProfitMetricsCard({ metrics, previousMetrics }: ProfitMetricsCar
           invertColor
         />
         <MetricCard
+          currency={currency}
           label="Orders"
           value={metrics.orders}
           previous={previousMetrics?.orders}
@@ -126,21 +129,25 @@ export function ProfitMetricsCard({ metrics, previousMetrics }: ProfitMetricsCar
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
             <MetricCard
+          currency={currency}
               label="COGS"
               value={metrics.cogs}
               previous={previousMetrics?.cogs}
             />
             <MetricCard
+          currency={currency}
               label="Ad Spend"
               value={metrics.adSpend}
               previous={previousMetrics?.adSpend}
             />
             <MetricCard
+          currency={currency}
               label="Transaction Fees"
               value={metrics.transactionFees}
               previous={previousMetrics?.transactionFees}
             />
             <MetricCard
+          currency={currency}
               label="Custom Expenses"
               value={metrics.customExpenses}
               previous={previousMetrics?.customExpenses}
@@ -157,6 +164,7 @@ export function ProfitMetricsCard({ metrics, previousMetrics }: ProfitMetricsCar
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
             <MetricCard
+          currency={currency}
               label="ROI"
               value={metrics.roi}
               previous={previousMetrics?.roi}
@@ -166,18 +174,21 @@ export function ProfitMetricsCard({ metrics, previousMetrics }: ProfitMetricsCar
               invertColor
             />
             <MetricCard
+          currency={currency}
               label="ROAS"
               value={metrics.roas}
               previous={previousMetrics?.roas}
               decimals={2}
             />
             <MetricCard
+          currency={currency}
               label="AOV"
               value={metrics.aov}
               previous={previousMetrics?.aov}
               decimals={2}
             />
             <MetricCard
+          currency={currency}
               label="Gross Profit"
               value={metrics.grossProfit}
               previous={previousMetrics?.grossProfit}

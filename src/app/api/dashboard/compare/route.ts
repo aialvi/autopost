@@ -1,9 +1,13 @@
+import { getDemoApiResponse } from "@/lib/demo/api";
 import { NextRequest, NextResponse } from "next/server";
+import { hasBrandAccess } from "@/lib/auth";
 import { auth } from "@/lib/auth";
 import { getMultiBrandComparison } from "@/lib/dashboard/overview";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
+  const demoResponse = getDemoApiResponse(session?.user?.id, request);
+  if (demoResponse) return demoResponse;
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -17,6 +21,8 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  if (brandIds.length > 5 || !(await Promise.all(brandIds.map((id) => hasBrandAccess(session.user.id, id)))).every(Boolean)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Default to last 30 days
   const endDate = new Date().toISOString().split("T")[0];

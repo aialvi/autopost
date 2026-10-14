@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, TrendingUp, TrendingDown, Lightbulb, CheckCircle, XCircle, Eye } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, CheckCircle, XCircle } from "lucide-react";
 
 export interface Anomaly {
   id: string;
@@ -74,8 +74,8 @@ export function AnomalyList({ anomalies }: AnomalyListProps) {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-sm">{anomaly.title}</h4>
+                  <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                    <h4 className="text-sm font-semibold leading-5">{anomaly.title}</h4>
                     {anomaly.platform && (
                       <Badge variant="outline" className="text-xs">
                         {anomaly.platform}
@@ -85,7 +85,7 @@ export function AnomalyList({ anomalies }: AnomalyListProps) {
                   <p className="text-sm text-muted-foreground mb-2">
                     {anomaly.description}
                   </p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
                     <span>Value: ${anomaly.value.toFixed(2)}</span>
                     <span>Expected: ${anomaly.expectedValue.toFixed(2)}</span>
                     <span>

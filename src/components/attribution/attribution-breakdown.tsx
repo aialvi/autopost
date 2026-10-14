@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetchJSON } from "@/lib/utils/fetch-json";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -26,30 +28,10 @@ const models: Record<AttributionModel, string> = {
 };
 
 export function AttributionBreakdown({ brandId }: AttributionBreakdownProps) {
-  const [data, setData] = useState<AttributionData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [model, setModel] = useState<AttributionModel>("last_click");
-
-  useEffect(() => {
-    fetchData();
-  }, [brandId, model]);
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/brands/${brandId}/attribution?model=${model}`
-      );
-      if (response.ok) {
-        const result = await response.json();
-        setData(result);
-      }
-    } catch (error) {
-      console.error("Error fetching attribution data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data, error, isLoading } = useSWR<AttributionData>(
+    `/api/brands/${brandId}/attribution?model=${model}`, fetchJSON,
+  );
 
   const totalRevenue = data?.byPlatform.reduce((sum, p) => sum + p.attributedRevenue, 0) || 0;
   const totalConversions = data?.byPlatform.reduce((sum, p) => sum + p.conversions, 0) || 0;
@@ -75,6 +57,7 @@ export function AttributionBreakdown({ brandId }: AttributionBreakdownProps) {
 
   return (
     <div className="space-y-6">
+      {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
       {/* Model Selector & Summary */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -83,7 +66,7 @@ export function AttributionBreakdown({ brandId }: AttributionBreakdownProps) {
           </CardHeader>
           <CardContent>
             <Select value={model} onValueChange={(v) => setModel(v as AttributionModel)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Attribution model">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -158,7 +141,7 @@ export function AttributionBreakdown({ brandId }: AttributionBreakdownProps) {
 
                   return (
                     <div key={platform.platform} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <div className="flex items-center gap-2">
                           <div
                             className={`w-3 h-3 rounded ${platformColors[platform.platform] || "bg-gray-500"}`}
@@ -212,7 +195,7 @@ export function AttributionBreakdown({ brandId }: AttributionBreakdownProps) {
                 .map((campaign, index) => (
                   <div
                     key={campaign.campaignId}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                    className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-lg border bg-card"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-xs font-medium">

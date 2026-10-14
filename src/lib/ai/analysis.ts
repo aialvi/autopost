@@ -172,7 +172,7 @@ export async function generateAnomalyAnalysis(
       name: adCampaigns.name,
       date: adDataSnapshots.date,
       spend: sql<number>`CAST(${adDataSnapshots.spend} AS FLOAT)`,
-      conversions: adDataSnapshots.conversions,
+      revenue: adDataSnapshots.revenueReported,
     })
     .from(adCampaigns)
     .innerJoin(adDataSnapshots, eq(adCampaigns.id, adDataSnapshots.campaignId))
@@ -191,12 +191,10 @@ export async function generateAnomalyAnalysis(
     if (!campaignROAS[row.campaignId]) {
       campaignROAS[row.campaignId] = [];
     }
-    // ROAS = revenue / spend. Since we don't have direct revenue, we'll use conversions as proxy
-    // A drop in conversions relative to spend is the anomaly
     const spend = parseFloat(row.spend.toString());
     campaignROAS[row.campaignId].push({
       date: row.date,
-      value: spend > 0 ? (row.conversions || 0) / spend : 0,
+      value: spend > 0 ? Number(row.revenue || 0) / spend : 0,
     });
   }
 
@@ -254,8 +252,8 @@ export async function generateInsights(
   }
 
   // Revenue trend insight
-  const revenueChange = previousMetrics
-    ? ((currentMetrics.revenue - previousMetrics.revenue) / previousMetrics.revenue) * 100
+  const revenueChange = previousMetrics && previousMetrics.revenue > 0
+    ? ((currentMetrics.revenue - previousMetrics.revenue) / (previousMetrics.revenue || 1)) * 100
     : 0;
 
   if (revenueChange > 10) {
@@ -370,7 +368,7 @@ export async function generateInsights(
   }
 
   // Ad spend percentage insight
-  const adSpendPercentage = (currentMetrics.adSpend / currentMetrics.revenue) * 100;
+  const adSpendPercentage = currentMetrics.revenue > 0 ? (currentMetrics.adSpend / currentMetrics.revenue) * 100 : 0;
   if (adSpendPercentage > 40) {
     insights.push({
       id: "high_ad_spend",
@@ -415,6 +413,7 @@ export async function generateRecommendations(
       totalImpressions: sql<number>`SUM(${adDataSnapshots.impressions})`,
       totalClicks: sql<number>`SUM(${adDataSnapshots.clicks})`,
       totalConversions: sql<number>`SUM(${adDataSnapshots.conversions})`,
+      totalRevenue: sql<number>`SUM(${adDataSnapshots.revenueReported})`,
       daysActive: sql<number>`COUNT(DISTINCT ${adDataSnapshots.date})`,
     })
     .from(adCampaigns)
@@ -436,7 +435,7 @@ export async function generateRecommendations(
     const ctr = clicks > 0 && campaign.totalImpressions > 0
       ? (clicks / campaign.totalImpressions) * 100
       : 0;
-    const roas = spend > 0 ? (conversions * 50) / spend : 0; // Assuming $50 per conversion for ROAS calc
+    const roas = spend > 0 ? Number(campaign.totalRevenue || 0) / spend : 0;
 
     // Kill recommendation: High spend, low conversions
     if (spend > 500 && conversions < 5) {
@@ -444,7 +443,7 @@ export async function generateRecommendations(
         id: `kill_${campaign.id}`,
         actionType: "kill",
         title: `Consider Pausing: ${campaign.name}`,
-        reasoning: `This campaign has spent $${spend.toFixed(2)} with only ${conversions} conversions. ROAS is estimated at ${roas.toFixed(2)}x.`,
+        reasoning: `This campaign has spent $${spend.toFixed(2)} with only ${conversions} conversions. Platform-reported ROAS is ${roas.toFixed(2)}x.`,
         currentMetrics: { spend, roas, ctr, conversions },
         recommendedChanges: { action: "pause" },
         entityId: campaign.id,

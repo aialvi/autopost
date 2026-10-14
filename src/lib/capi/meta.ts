@@ -1,8 +1,10 @@
+import { appUrl } from "@/lib/utils/app-url";
 /**
  * Meta (Facebook) Conversion API (CAPI) Client
  * Sends server-side events to Meta for accurate attribution
  */
 
+import { revealSecret } from "@/lib/platforms/connection-secrets";
 import { db } from "@/lib/db";
 import { capiEvents, platformConnections } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -89,7 +91,7 @@ export async function getMetaConfig(brandId: string): Promise<MetaCAPIConfig | n
   }
 
   return {
-    accessToken: connection.accessToken,
+    accessToken: revealSecret(connection.accessToken),
     pixelId,
     testCode,
   };
@@ -177,7 +179,7 @@ export async function sendMetaEvent(
 
   const eventId = options?.eventId || crypto.randomUUID();
   const eventTime = Math.floor(Date.now() / 1000);
-  const eventSourceUrl = options?.eventSourceUrl || `${process.env.NEXT_PUBLIC_APP_URL || "https://autopost.app"}`;
+  const eventSourceUrl = options?.eventSourceUrl || `${appUrl()}`;
 
   const normalizedUserData = normalizeUserData(userData);
 

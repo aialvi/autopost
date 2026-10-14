@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetchJSON } from "@/lib/utils/fetch-json";
+import type { Anomaly, Insight, Recommendation } from "@/lib/ai/analysis";
+import type { TrendData } from "@/components/ai/trend-analysis";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Loader2, Calendar, RefreshCw } from "lucide-react";
 import { AnomalyList } from "@/components/ai/anomaly-list";
 import { InsightsList } from "@/components/ai/insights-list";
@@ -17,53 +20,14 @@ interface AIInsightsProps {
 }
 
 export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [data, setData] = useState<{
-    anomalies?: any[];
-    insights?: any[];
-    recommendations?: any[];
-    trends?: any;
-  }>({});
-  const [error, setError] = useState<string | null>(null);
-
-  // Date range state
   const [dateRange, setDateRange] = useState({ startDate, endDate });
-
-  useEffect(() => {
-    fetchData();
-  }, [brandId, dateRange]);
-
-  async function fetchData() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      });
-
-      const response = await fetch(`/api/brands/${brandId}/ai?${params}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch AI insights");
-      }
-
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch AI insights");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleRefresh() {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  }
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const { data: response, error, isLoading: loading, isValidating: refreshing, mutate } = useSWR<{
+    anomalies?: Anomaly[]; insights?: Insight[]; recommendations?: Recommendation[]; trends?: TrendData;
+    analysisMethod?: string; configurationMessage?: string;
+  }>(`/api/brands/${brandId}/ai?${new URLSearchParams(dateRange)}`, fetchJSON, { revalidateOnFocus: false, dedupingInterval: 60000 });
+  const data = response ?? {};
+  const handleRefresh = () => mutate();
 
   function handlePreset(days: number) {
     const end = new Date();
@@ -77,38 +41,12 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
   }
 
   function handleRecommendationAction(id: string, action: "approve" | "decline") {
-    // For now, just remove the recommendation from the list
-    if (action === "decline" && data.recommendations) {
-      setData({
-        ...data,
-        recommendations: data.recommendations.filter((r: any) => r.id !== id),
-      });
-    } else if (action === "approve") {
-      alert(`Recommendation "${id}" approved. Integration with ad platforms coming soon!`);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-destructive">{error}</p>
-        <Button onClick={fetchData} variant="outline" className="mt-4">
-          Retry
-        </Button>
-      </div>
-    );
+    if (action === "decline") setDismissed((previous) => [...previous, id]);
   }
 
   return (
     <div className="space-y-6">
+      {data.configurationMessage && <p role="status" className="rounded-xl border bg-muted/50 p-4 text-sm text-muted-foreground">{data.configurationMessage}</p>}
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
@@ -155,6 +93,8 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
         </Button>
       </div>
 
+      {loading && <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading analysis…</p>}
+      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error.message}</p>}
       {/* Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Anomalies */}
@@ -170,7 +110,7 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
       {/* Recommendations */}
       {data.recommendations && (
         <RecommendationsList
-          recommendations={data.recommendations}
+          recommendations={data.recommendations.filter((item) => !dismissed.includes(item.id))}
           onAction={handleRecommendationAction}
         />
       )}
