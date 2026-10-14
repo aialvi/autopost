@@ -222,7 +222,7 @@ export async function sendMetaEvent(
       platform: "meta",
       eventName,
       eventId,
-      eventData: payload as any,
+      eventData: payload,
       sentAt: new Date(),
       responseStatus,
       responseBody: responseText.substring(0, 1000), // Limit size
@@ -255,7 +255,7 @@ export async function sendMetaEvent(
       platform: "meta",
       eventName,
       eventId,
-      eventData: payload as any,
+      eventData: payload,
       sentAt: new Date(),
       responseStatus: "500",
       responseBody: errorMessage,

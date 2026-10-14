@@ -78,8 +78,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).role = token.role;
+        session.user.id = typeof token.id === "string" ? token.id : "";
+        session.user.role = typeof token.role === "string" ? token.role : "operator";
       }
       return session;
     },
@@ -102,8 +102,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
         } else {
           // Update user object with existing user data
-          (user as any).id = existingUser.id;
-          (user as any).role = existingUser.role;
+          user.id = existingUser.id;
+          user.role = existingUser.role;
         }
       }
       return true;

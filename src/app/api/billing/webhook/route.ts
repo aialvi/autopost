@@ -1,9 +1,23 @@
+import { z } from "zod";
 import { verifyPolarEvent } from "@/lib/webhooks/verify";
 import { NextResponse } from "next/server";
 import { parsePolarWebhook } from "@/lib/payments/polar";
 import { db } from "@/lib/db";
 import { subscriptions, invoices } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+
+const subscriptionPayload = z.object({
+  id: z.string(), product_id: z.string(), customer_id: z.string(), status: z.string(),
+  current_period_start: z.string(), current_period_end: z.string(), cancel_at_period_end: z.boolean(),
+  trial_start: z.string().nullable().optional(), trial_end: z.string().nullable().optional(),
+  product_metadata: z.object({ tier: z.string().optional() }).optional(),
+  metadata: z.object({ brandId: z.string().optional() }).optional(),
+});
+const invoicePayload = z.object({
+  id: z.string(), hosted_invoice_url: z.string().nullable().optional(), status: z.string(), currency: z.string(),
+  subtotal: z.union([z.string(), z.number()]), tax: z.union([z.string(), z.number()]), total: z.union([z.string(), z.number()]),
+  due_date: z.string().nullable().optional(), paid_at: z.string().nullable().optional(), subscription_id: z.string(),
+});
 
 /**
  * POST - Handle Polar.sh webhooks
@@ -27,22 +41,19 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "subscription.created":
       case "subscription.updated": {
-        const data = event.data as any;
-        await handleSubscriptionUpdate(data);
+        await handleSubscriptionUpdate(subscriptionPayload.parse(event.data));
         break;
       }
 
       case "subscription.canceled": {
-        const data = event.data as any;
-        await handleSubscriptionCancel(data);
+        await handleSubscriptionCancel(z.object({ id: z.string() }).parse(event.data));
         break;
       }
 
       case "invoice.created":
       case "invoice.updated":
       case "invoice.paid": {
-        const data = event.data as any;
-        await handleInvoiceUpdate(data);
+        await handleInvoiceUpdate(invoicePayload.parse(event.data));
         break;
       }
 
@@ -57,7 +68,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function handleSubscriptionUpdate(data: any) {
+async function handleSubscriptionUpdate(data: z.infer<typeof subscriptionPayload>) {
   // Find subscription by Polar ID or create new one
   const existing = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.polarSubscriptionId, data.id),
@@ -97,7 +108,7 @@ async function handleSubscriptionUpdate(data: any) {
   }
 }
 
-async function handleSubscriptionCancel(data: any) {
+async function handleSubscriptionCancel(data: { id: string }) {
   const existing = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.polarSubscriptionId, data.id),
   });
@@ -114,7 +125,7 @@ async function handleSubscriptionCancel(data: any) {
   }
 }
 
-async function handleInvoiceUpdate(data: any) {
+async function handleInvoiceUpdate(data: z.infer<typeof invoicePayload>) {
   const existing = await db.query.invoices.findFirst({
     where: eq(invoices.polarInvoiceId, data.id),
   });

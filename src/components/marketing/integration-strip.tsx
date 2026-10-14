@@ -21,10 +21,9 @@ const integrations = [
     name: "Google Ads",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M7.5 17.5l4-7 4 7" stroke="#4285F4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M12 3v7" stroke="#EA4335" strokeWidth="2" strokeLinecap="round" />
-        <path d="M6 14h12" stroke="#FBBC04" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="12" cy="19" r="2" fill="#34A853" />
+        <path d="M12 5 5 18" stroke="#FBBC04" strokeWidth="7" strokeLinecap="round" />
+        <path d="M12 5 19 18" stroke="#4285F4" strokeWidth="7" strokeLinecap="round" />
+        <circle cx="5" cy="18" r="3.5" fill="#34A853" />
       </svg>
     ),
   },

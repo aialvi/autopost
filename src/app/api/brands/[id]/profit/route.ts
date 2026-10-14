@@ -66,7 +66,7 @@ export async function GET(req: Request, { params }: RouteContext) {
         data = await calculateProfitMetrics(brandId, dateRange);
     }
 
-    const response: any = {
+    const response: Record<string, unknown> = {
       dateRange,
       granularity,
       data,

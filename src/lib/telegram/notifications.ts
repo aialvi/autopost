@@ -96,7 +96,7 @@ export async function getNotificationPreferences(
 async function sendNotification(
   context: NotificationContext,
   type: string,
-  messageBuilder: (prefs: any) => string,
+  messageBuilder: (prefs: typeof notificationPreferences.$inferSelect) => string,
   keyboardBuilder?: () => ReturnType<typeof createKeyboard>
 ): Promise<void> {
   const { brandId } = context;

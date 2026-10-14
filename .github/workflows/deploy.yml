@@ -1,3 +1,4 @@
+# Optional workflow: enable ENABLE_PRODUCTION_DEPLOY only after its required service configuration is ready.
 name: Deploy
 
 on:
@@ -11,6 +12,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOY == 'true' }}
     name: Deploy to Production
     runs-on: ubuntu-latest
     environment:
@@ -37,10 +39,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_APP_URL: https://autopost.sh
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://autopost-sepia.vercel.app' }}
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
@@ -51,10 +52,10 @@ jobs:
           vercel-args: "--prod"
 
   notify:
+    if: ${{ vars.ENABLE_PRODUCTION_DEPLOY == 'true' && always() }}
     name: Notify Deployment
     needs: deploy
     runs-on: ubuntu-latest
-    if: always()
     steps:
       - name: Send Slack notification
         uses: slackapi/slack-github-action@v1

@@ -190,7 +190,7 @@ export async function getDashboardOverview(
 export async function getMultiBrandComparison(
   brandIds: string[],
   dateRange: DateRange
-): Promise<Array<{ brandId: string; brandName: string; metrics: any }>> {
+): Promise<Array<{ brandId: string; brandName: string; metrics: Awaited<ReturnType<typeof calculateProfitMetrics>> }>> {
   const comparisons = [];
 
   for (const brandId of brandIds) {

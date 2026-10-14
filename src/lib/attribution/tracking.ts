@@ -80,7 +80,7 @@ export async function trackPixelEvent(data: {
     utmCampaign: data.utmCampaign,
     utmContent: data.utmContent,
     utmTerm: data.utmTerm,
-    eventData: data.eventData as any,
+    eventData: data.eventData as typeof pixelEvents.$inferInsert.eventData,
   });
 }
 
@@ -344,8 +344,8 @@ export async function getBrandAttribution(
     where: and(
       eq(shopifyOrders.brandId, brandId),
       eq(shopifyOrders.financialStatus, "paid"),
-      sqlTemplate`${shopifyOrders.processedAt} >= ${startDate}` as any,
-      sqlTemplate`${shopifyOrders.processedAt} <= ${endDate}` as any
+      sqlTemplate`${shopifyOrders.processedAt} >= ${startDate}`,
+      sqlTemplate`${shopifyOrders.processedAt} <= ${endDate}`
     ),
   });
 
@@ -367,8 +367,8 @@ export async function getBrandAttribution(
     .where(
       and(
         eq(pixelEvents.brandId, brandId),
-        sqlTemplate`${pixelEvents.createdAt} >= ${startDate}` as any,
-        sqlTemplate`${pixelEvents.createdAt} <= ${endDate}` as any
+        sqlTemplate`${pixelEvents.createdAt} >= ${startDate}`,
+        sqlTemplate`${pixelEvents.createdAt} <= ${endDate}`
       )
     );
 

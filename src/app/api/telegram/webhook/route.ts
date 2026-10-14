@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleMessage(message: any) {
+async function handleMessage(message: { chat: { id: number }; text?: string }) {
   const chatId = message.chat.id;
   const text = message.text;
 
@@ -46,13 +46,9 @@ async function handleMessage(message: any) {
   }
 }
 
-async function handleCallbackQuery(callbackQuery: any) {
-  // Handle button clicks
-  const data = callbackQuery.data;
-  const chatId = callbackQuery.message.chat.id;
-
-  // Process the callback
-  // ...
+async function handleCallbackQuery(callbackQuery: { data?: string; message?: { chat: { id: number } } }) {
+  // Callback handling remains a placeholder; retain the endpoint's existing extension point.
+  void callbackQuery;
 }
 
 async function sendWelcomeMessage(chatId: number) {

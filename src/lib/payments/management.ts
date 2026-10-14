@@ -360,13 +360,13 @@ export async function checkTierLimit(
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const apiUsage = await getBrandUsage(brandId, monthStart, monthEnd);
     current = apiUsage.find((u) => u.metric === "api_calls")?.quantity || 0;
-    limitValue = (tierLimits as any).apiCallsPerMonth;
+    limitValue = tierLimits.apiCallsPerMonth;
   }
 
   if (limit === "dataRetention") {
     // Data retention is calculated differently
-    current = (tierLimits as any).dataRetentionDays === -1 ? 365 : (tierLimits as any).dataRetentionDays;
-    limitValue = (tierLimits as any).dataRetentionDays;
+    current = tierLimits.dataRetentionDays === -1 ? 365 : tierLimits.dataRetentionDays;
+    limitValue = tierLimits.dataRetentionDays;
     return { allowed: true, current, limit: limitValue };
   }
 

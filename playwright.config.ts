@@ -26,7 +26,7 @@ export default defineConfig({
     { name: "mobile", testIgnore: "**/api.spec.ts", use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" } },
   ],
   webServer: externalURL ? undefined : {
-    command: "pnpm dev",
+    command: process.env.PLAYWRIGHT_SERVER_COMMAND || "pnpm dev",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

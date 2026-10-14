@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -77,12 +77,6 @@ export function NotificationPreferences({
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "success" | "error">("idle");
-
-  useEffect(() => {
-    if (initialPreferences) {
-      setPreferences(initialPreferences);
-    }
-  }, [initialPreferences]);
 
   const updatePreference = <K extends keyof NotificationPreferences>(
     key: K,

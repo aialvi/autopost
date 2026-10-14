@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
   const botInfo = await getBotInfo();
 
-  if (botInfo.ok) {
+  if (botInfo.ok && botInfo.result) {
     return NextResponse.json({
       ok: true,
       bot: {

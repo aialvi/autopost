@@ -47,6 +47,7 @@ export default async function NotificationsPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <NotificationPreferences
+            key={brandId}
             brandId={brandId}
             initialPreferences={preferences || undefined}
             isViewer={currentBrand.userRole === "viewer"}

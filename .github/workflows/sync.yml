@@ -1,3 +1,4 @@
+# Optional workflow: enable ENABLE_GITHUB_PLATFORM_SYNC only after its required service configuration is ready.
 name: Sync Ad Platforms
 
 on:
@@ -7,6 +8,7 @@ on:
 
 jobs:
   sync-meta:
+    if: ${{ vars.ENABLE_GITHUB_PLATFORM_SYNC == 'true' }}
     name: Sync Meta Ads
     runs-on: ubuntu-latest
     steps:
@@ -28,6 +30,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   sync-shopify:
+    if: ${{ vars.ENABLE_GITHUB_PLATFORM_SYNC == 'true' }}
     name: Sync Shopify
     runs-on: ubuntu-latest
     steps:
@@ -49,6 +52,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   sync-google:
+    if: ${{ vars.ENABLE_GITHUB_PLATFORM_SYNC == 'true' }}
     name: Sync Google Ads
     runs-on: ubuntu-latest
     steps:

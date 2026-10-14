@@ -66,7 +66,7 @@ export async function GET(req: Request, { params }: RouteContext) {
       endDate: previousEnd.toISOString().split("T")[0],
     };
 
-    const result: any = {
+    const result: Record<string, unknown> = {
       dateRange,
     };
 

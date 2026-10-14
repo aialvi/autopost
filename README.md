@@ -1,264 +1,214 @@
 # AutoPost
 
-Multi-brand ad management, profit tracking, and AI-powered optimization platform.
+**Multi-brand advertising analytics, profit tracking, and AI-assisted insights in one workspace.**
 
-## Tech Stack
+AutoPost brings Shopify sales and Meta, Google, TikTok, and Snapchat ad performance together. Track profit after product costs and expenses, compare brands, review recommendations, and stay informed through Telegram summaries and alerts.
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 (App Router, TypeScript) |
-| UI | ShadCN UI, TailwindCSS v4 |
-| State/Fetching | TanStack Query, Zod |
-| Auth | Auth.js v5 (Email/Password + Google OAuth) |
-| ORM | Drizzle ORM |
-| Database | Neon PostgreSQL with RLS |
-| Storage | Vercel Blob |
-| AI | Google Gemini (default), Anthropic Claude (optional) |
-| Payments | Polar.sh |
-| Messaging | Telegram Bot API |
-| Cron | GitHub Actions → API routes |
-| Hosting | Vercel |
+[Explore the demo](https://autopost-sepia.vercel.app/login?demo=1) · [Deployment guide](DEPLOYMENT.md) · [Test suite](tests/README.md) · [GitHub Actions](.github/README.md)
 
-## Project Structure
+[![AutoPost profit dashboard with a contained chart, financial summaries, and navigation across all dashboard tabs](public/images/readme/autopost-dashboard.png)](https://autopost-sepia.vercel.app/login?demo=1)
 
-```
-src/
-├── app/
-│   ├── (auth)/          # Auth pages (login, register)
-│   ├── (dashboard)/     # Protected dashboard routes
-│   ├── api/             # API routes
-│   │   ├── cron/        # Cron endpoints
-│   │   ├── webhooks/    # Webhook receivers
-│   │   └── ...
-│   ├── layout.tsx
-│   └── page.tsx         # Landing/marketing page
-├── components/
-│   ├── ui/              # ShadCN components
-│   ├── dashboard/       # Dashboard-specific components
-│   └── shared/          # Shared components
-├── lib/
-│   ├── db/              # Drizzle config, schema, queries
-│   ├── auth/            # Auth.js config
-│   ├── platforms/       # Platform API clients
-│   │   ├── shopify/
-│   │   ├── meta/
-│   │   ├── snapchat/
-│   │   ├── google/
-│   │   └── tiktok/
-│   ├── ai/              # AI analysis engine
-│   ├── telegram/        # Telegram bot
-│   ├── payments/        # Polar.sh
-│   ├── pixel/           # Attribution pixel
-│   └── utils/           # Helpers, constants, types
-├── hooks/               # Custom React hooks
-├── types/               # Global TypeScript types
-└── styles/              # Global styles
-```
+*Actual AutoPost dashboard with read-only sample data. Select the preview to explore the demo.*
 
-## Getting Started
+## Product overview
 
-### Prerequisites
+| Area | What you can do |
+| --- | --- |
+| **Brands** | Organize separate brands, switch workspaces, compare performance, and assign owner, manager, or viewer access. |
+| **Integrations** | Connect Shopify and four advertising platforms, sync orders and campaign metrics, and monitor connection status. |
+| **Profit** | Review revenue, refunds, COGS, estimated transaction fees, ad spend, and custom expenses with daily, weekly, monthly, or overall reporting. |
+| **Attribution** | Inspect platform and campaign attribution reports alongside conversion event history and CAPI platform filters. |
+| **AI insights** | Review trends, anomalies, and recommendations using Gemini or Anthropic, with a labelled rules-based fallback when AI is unavailable. |
+| **Notifications** | Configure Telegram alerts, daily and weekly summaries, thresholds, timezones, and quiet hours. Review delivery history. |
+| **Billing** | View subscription details and invoices. Configure Polar for live checkout and subscription management. |
 
-- Node.js v24.14.1 (use `.nvmrc` with `nvm use`)
-- PostgreSQL database (Neon recommended)
-- Vercel account for hosting and blob storage
-
-### Installation
-
-1. Clone the repository and install dependencies:
-```bash
-npm install
-```
-
-2. Copy the environment variables template:
-```bash
-cp .env.example .env
-```
-
-3. Configure your environment variables (see [Environment Variables](#environment-variables) below).
-
-4. Generate and run database migrations:
-```bash
-npm run db:generate
-npm run db:push
-```
-
-5. Start the development server:
-```bash
-npm run dev
-```
-
-Visit `http://localhost:3000` to see the application.
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and configure the following variables:
-
-### Core
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `NEXT_PUBLIC_APP_URL` | Application URL | Yes |
-| `NODE_ENV` | Environment (development/production) | Yes |
-| `AUTH_SECRET` | Secret for Auth.js sessions | Yes |
-| `AUTH_URL` | Auth URL (same as APP_URL) | Yes |
-| `ENCRYPTION_KEY` | AES-256 key for token encryption | Yes |
-| `CRON_SECRET` | Secret for cron endpoint authentication | Yes |
-
-### Auth Providers
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `AUTH_GOOGLE_ID` | Google OAuth Client ID | Optional |
-| `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret | Optional |
-
-### Shopify
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SHOPIFY_CLIENT_ID` | Shopify API Client ID | Yes |
-| `SHOPIFY_CLIENT_SECRET` | Shopify API Client Secret | Yes |
-| `SHOPIFY_WEBHOOK_SECRET` | Shopify Webhook signing secret | Yes |
-
-### Ad Platforms
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `META_APP_ID` | Meta Marketing App ID | Yes |
-| `META_APP_SECRET` | Meta Marketing App Secret | Yes |
-| `SNAPCHAT_CLIENT_ID` | Snapchat Marketing Client ID | Yes |
-| `SNAPCHAT_CLIENT_SECRET` | Snapchat Marketing Client Secret | Yes |
-| `GOOGLE_ADS_DEVELOPER_TOKEN` | Google Ads Developer Token | Yes |
-| `GOOGLE_ADS_CLIENT_ID` | Google Ads Client ID | Yes |
-| `GOOGLE_ADS_CLIENT_SECRET` | Google Ads Client Secret | Yes |
-| `TIKTOK_APP_ID` | TikTok Marketing App ID | Yes |
-| `TIKTOK_APP_SECRET` | TikTok Marketing App Secret | Yes |
-
-### AI
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GEMINI_API_KEY` | Google Gemini API Key | Yes |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API Key | Optional |
-| `AI_PROVIDER` | Default AI provider (gemini/claude) | Yes |
-
-### Integrations
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token | Optional |
-| `POLAR_ACCESS_TOKEN` | Polar.sh Access Token | Yes |
-| `POLAR_WEBHOOK_SECRET` | Polar.sh Webhook Secret | Yes |
-| `POLAR_ENVIRONMENT` | Polar Environment (sandbox/production) | Yes |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob Storage Token | Yes |
-
-## Database Schema
-
-### Core Tables
-
-- `users` - User accounts
-- `accounts` - OAuth accounts
-- `sessions` - User sessions
-- `brands` - Brand/organization entities
-- `brand_users` - Brand-user relationships with roles
-
-### Platform Connections
-
-- `platform_connections` - Connected platform accounts (Shopify, Meta, Snapchat, Google, TikTok)
-
-### Shopify Data
-
-- `shopify_products` - Synced products
-- `shopify_variants` - Product variants with COGS
-- `shopify_orders` - Synced orders
-- `shopify_order_items` - Order line items
-- `transaction_fees` - Payment gateway fees
-
-### Ad Data
-
-- `ad_campaigns` - Ad campaigns
-- `ad_sets` - Ad sets/groups
-- `ads` - Individual ads
-- `ad_data_snapshots` - Daily metrics snapshots
-
-### Financial
-
-- `custom_expenses` - Custom expense tracking
-
-### AI Analysis
-
-- `ai_analyses` - AI analysis runs
-- `ai_recommendations` - AI-generated recommendations
-
-### Attribution & CAPI
-
-- `pixel_events` - First-party pixel events
-- `capi_events` - Server-side CAPI events
-
-### System
-
-- `platform_sync_logs` - Platform sync logs
-- `telegram_configs` - Telegram bot configurations
-
-## Profit Calculation Formula
-
-```
-Profit = Revenue (Shopify) - COGS - Ad Spend - Transaction Fees - Shipping - Custom Expenses
-```
-
-## Development Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run db:generate` | Generate database migrations |
-| `npm run db:push` | Push schema to database |
-| `npm run db:studio` | Open Drizzle Studio |
-
-## License
-
-MIT
-
+AI recommendations are advisory: campaign changes and budgets remain under your control. Live integrations require account credentials and provider configuration; the demo is ready to explore without connecting external accounts.
 
 ## Demo workspace
 
-The login page includes **Fill demo credentials**. Select it, then **Sign in**.
-The registration page also links to the demo with the login fields prefilled.
+On the login page, select **Fill demo credentials**, then **Sign in**. The registration page also provides a demo link.
 
-- Email: `demo@autopost.app`
-- Password: `DemoPass123!`
+| Field | Public demo credentials |
+| --- | --- |
+| Email | `demo@autopost.app` |
+| Password | `DemoPass123!` |
 
-The demo is enabled by default in both development and production. Set
-`DEMO_ENABLED=false` to disable it. These credentials are intentionally public;
-they authenticate a separate sample identity and never a database user.
+Explore **Northstar Apparel**, **Terra Home**, and **Bloom Skincare** with sample data across all five integrations, profit reports, attribution, AI insights, notifications, and a sample Pro subscription with invoices. Date filters, report granularity, brand switching, and pagination are interactive.
 
-Visitors can switch among three brands and explore Shopify, Meta, Snapchat,
-Google Ads, and TikTok connections, profit charts, attribution models, AI
-insights, notification history, and a Pro subscription with sample invoices.
-Dates stay current automatically. Date ranges, report granularity, attribution
-models, CAPI platform filters, and notification pagination work with sample data.
+The demo uses an isolated, signed sample identity. Data is generated without database seeding; dates stay current automatically. Demo requests cannot change records, access real brands, charge cards, send messages, or call live integration services. Brand selection is stored in each visitor’s cookie.
 
-Demo data is generated per request: no seed command, database rows, real API
-credentials, scheduled reset, or writable filesystem is needed. Keep the normal
-app configuration (`DATABASE_URL`, `AUTH_SECRET`, and the deployment's auth URL)
-when deploying to Vercel or another host. The demo uses the same signed session
-and dashboard components as the application. All demo API mutations are rejected
-server-side, real brand IDs are inaccessible to demo sessions, and outbound
-integration, AI, Telegram, and payment services are never called for the demo.
-Brand selection is stored only in each visitor's cookie. Sign out to create or
-use a real account.
+Demo access is enabled by default in development and production. Set `DEMO_ENABLED=false` to disable it. Sign out to create or use a real account.
 
-With a server running, verify the demo using:
+## Technology
+
+| Layer | Stack |
+| --- | --- |
+| Application | Next.js 16 App Router, React 19, TypeScript |
+| Interface | Tailwind CSS 4, Radix UI, Lucide icons |
+| Data fetching and validation | SWR, Zod |
+| Authentication | Auth.js 5 with credentials and optional Google OAuth |
+| Database | Neon PostgreSQL with Drizzle ORM |
+| AI providers | Google Gemini and Anthropic |
+| Notifications and billing | Telegram Bot API and Polar |
+| Testing | Node test runner with tsx, Playwright |
+| Hosting and scheduling | Vercel with authenticated cron routes |
+
+## Local development
+
+### Requirements
+
+- **Node.js 24**; the repository includes `.nvmrc`.
+- **pnpm 12.4.2**, pinned in `package.json`.
+- A **Neon PostgreSQL** database for application accounts and live data.
+
+### 1. Install dependencies
 
 ```sh
-npm run test:demo
-# Or test another local/production deployment:
-DEMO_TEST_URL=https://your-deployment.example npm run test:demo
+git clone https://github.com/aialvi/autopost.git
+cd autopost
+nvm use
+pnpm install --frozen-lockfile
 ```
 
-The integration checks use only the demo identity; mutation checks must return
-403 and never create accounts, charge cards, send messages, or change records.
+### 2. Configure the environment
+
+```sh
+cp .env.example .env.local
+```
+
+Set the core values in `.env.local`:
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Neon PostgreSQL connection string. |
+| `AUTH_SECRET` | Random secret used to sign authentication sessions. |
+| `ENCRYPTION_KEY` | 64 hexadecimal characters used to encrypt stored integration credentials. |
+| `CRON_SECRET` | Random secret protecting scheduled-job endpoints. |
+| `NEXT_PUBLIC_APP_URL` | Application URL; use `http://localhost:3000` locally. |
+| `DEMO_ENABLED` | Public demo availability; defaults to `true`. |
+
+Generate independent secrets locally:
+
+```sh
+openssl rand -base64 32  # AUTH_SECRET
+openssl rand -hex 32     # ENCRYPTION_KEY
+openssl rand -hex 32     # CRON_SECRET
+```
+
+Keep the encryption key stable so saved credentials remain readable. External provider keys are only needed for the services you enable. See [DEPLOYMENT.md](DEPLOYMENT.md) for OAuth, platform connections, AI providers, Telegram, and Polar configuration.
+
+### 3. Initialize the database
+
+Apply the checked-in migrations to a fresh database:
+
+```sh
+node --env-file=.env.local node_modules/drizzle-kit/bin.cjs migrate
+```
+
+For an existing database, review its migration history before applying schema changes. Drizzle CLI commands need the connection string loaded explicitly; Next.js loads `.env.local` when the app starts.
+
+### 4. Start the app
+
+```sh
+pnpm dev
+```
+
+Open [localhost:3000](http://localhost:3000). Create an account and brand for your own data, or use the public demo credentials.
+
+## Profit reporting
+
+```text
+Net profit = Revenue after refunds
+           − COGS
+           − Transaction fees
+           − Ad spend
+           − Custom expenses
+```
+
+Known product costs supply COGS; missing costs fall back to the brand’s configured percentage. Recurring expenses apply to the relevant reporting dates. Reports respect brand timezones, and repeated ad syncs update the same daily snapshot.
+
+Transaction fees currently use gateway-rate estimates. Connect accounts in the brand’s reporting currency; automatic currency conversion is not provided. Platform-attributed revenue can overlap across attribution windows and should be interpreted alongside Shopify revenue and blended performance.
+
+## Testing and quality checks
+
+```sh
+pnpm lint
+pnpm exec tsc --noEmit
+pnpm test
+pnpm build
+
+# Install Chromium once, then run desktop/mobile browser and API tests.
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+The default backend suite uses controlled provider responses and does not load the development or production database. Database integration tests are skipped unless `TEST_DATABASE_URL` is explicitly provided.
+
+The browser suite covers registration, login, brand switching, dashboard tabs, report controls, charts, responsive layouts, API authentication, webhook rejection, and demo mutation restrictions. It starts a local server or reuses one already running.
+
+With a server running, check the authenticated demo HTTP flows:
+
+```sh
+pnpm test:demo
+
+# Check an existing deployment.
+DEMO_TEST_URL=https://your-deployment.vercel.app pnpm test:demo
+PLAYWRIGHT_BASE_URL=https://your-deployment.vercel.app pnpm test:e2e
+```
+
+For database integration tests, set `TEST_DATABASE_URL` in `.env.test.local` to a separate, migrated test database, then run `pnpm test:integration`. See [tests/README.md](tests/README.md) for the coverage matrix, failure reports, and test setup. Live account permissions, real payments, AI responses, and Telegram delivery require separate provider checks.
+
+## Deployment and automation
+
+AutoPost is configured for Vercel. Production needs the core environment values, a migrated database, and credentials for any live services you enable. Vercel cron handles platform sync, summaries, and anomaly checks.
+
+GitHub CI runs a frozen pnpm install, lint, type checks, backend tests, a production build, and browser/API tests using synthetic configuration. The additional deployment, sync, migration, and security workflows are preserved and temporarily opt-in through repository variables.
+
+- [Deployment and integration setup](DEPLOYMENT.md)
+- [Workflow configuration and enablement](.github/README.md)
+
+## Repository layout
+
+```text
+.github/                 CI workflows and shared setup action
+src/
+  app/
+    (auth)/              Login and registration
+    (dashboard)/         Protected dashboard pages
+    api/                 Brand, reporting, integration, webhook, and cron routes
+    page.tsx             Landing page
+  components/            Marketing, dashboard, reporting, and shared UI
+  lib/
+    auth/                Authentication and brand permissions
+    db/                  Drizzle database client and schemas
+    demo/                Isolated sample identity and data
+    platforms/           Shopify and advertising API clients
+    profit/              Accounting calculations and report aggregation
+    attribution/         Touchpoints and attribution reporting
+    ai/                  Analysis and AI provider handling
+    telegram/            Notifications and delivery handling
+    payments/            Polar billing integration
+    jobs/                Authenticated scheduled-job logic
+  proxy.ts               Route protection and demo mutation guard
+drizzle/                 Checked-in database migrations
+scripts/                 Sync runner and demo HTTP checks
+tests/                   Backend, database integration, and browser suites
+```
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the development server. |
+| `pnpm build` | Build the production application. |
+| `pnpm start` | Serve an existing production build. |
+| `pnpm lint` | Run ESLint. |
+| `pnpm test` | Run isolated backend tests. |
+| `pnpm test:e2e` | Run browser and API tests. |
+| `pnpm test:e2e:ui` | Open the interactive Playwright runner. |
+| `pnpm test:integration` | Run database integration tests with an explicit test database. |
+| `pnpm test:demo` | Check demo HTTP flows against a running server. |
+| `pnpm db:generate` | Generate migrations after schema changes. |
+| `pnpm db:migrate` | Apply migrations with database configuration loaded. |
+| `pnpm db:push` | Apply the current schema directly; review changes before use. |
+| `pnpm db:studio` | Open Drizzle Studio with database configuration loaded. |

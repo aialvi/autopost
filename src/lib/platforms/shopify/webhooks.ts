@@ -1,6 +1,6 @@
 import { persistShopifyOrder } from "./order";
 import { revealSecret } from "../connection-secrets";
-import { ShopifyClient } from "./client";
+import { ShopifyClient, type ShopifyOrder } from "./client";
 import { NextRequest } from "next/server";
 import { verifyWebhookHMAC } from "./client";
 import { db } from "@/lib/db";
@@ -31,7 +31,7 @@ export async function verifyShopifyWebhook(
 export async function handleShopifyWebhook(
   topic: string,
   shopDomain: string,
-  data: any
+  data: unknown
 ): Promise<void> {
   // Find the platform connection for this shop
   const connection = await db.query.platformConnections.findFirst({
@@ -55,15 +55,15 @@ export async function handleShopifyWebhook(
     case "orders/create":
     case "orders/updated":
     case "orders/paid":
-      await persistShopifyOrder(brandId, data);
+      await persistShopifyOrder(brandId, data as ShopifyOrder);
       break;
     case "orders/cancelled":
-      await handleOrderCancelled(brandId, data);
+      await handleOrderCancelled(brandId, data as { id: bigint | number; cancelled_at: string });
       break;
     case "refunds/create":
       // Read the authoritative order so webhook retries never add the refund twice.
       const client = new ShopifyClient({ storeDomain: connection.accountId, accessToken: revealSecret(connection.accessToken) });
-      await persistShopifyOrder(brandId, await client.getOrder(data.order_id));
+      await persistShopifyOrder(brandId, await client.getOrder((data as { order_id: bigint }).order_id));
       break;
     default:
       console.log(`Unhandled webhook topic: ${topic}`);
@@ -86,7 +86,7 @@ async function handleAppUninstalled(brandId: string, shopDomain: string) {
     );
 }
 
-async function handleOrderCancelled(brandId: string, order: any) {
+async function handleOrderCancelled(brandId: string, order: { id: bigint | number; cancelled_at: string }) {
   await db
     .update(shopifyOrders)
     .set({
@@ -100,4 +100,3 @@ async function handleOrderCancelled(brandId: string, order: any) {
       )
     );
 }
-

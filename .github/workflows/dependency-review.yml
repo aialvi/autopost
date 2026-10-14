@@ -1,3 +1,4 @@
+# Optional workflow: enable ENABLE_DEPENDENCY_REVIEW only after its required service configuration is ready.
 name: Dependency Review
 
 on:
@@ -9,6 +10,7 @@ permissions:
 
 jobs:
   dependency-review:
+    if: ${{ vars.ENABLE_DEPENDENCY_REVIEW == 'true' }}
     name: Dependency Review
     runs-on: ubuntu-latest
     steps:

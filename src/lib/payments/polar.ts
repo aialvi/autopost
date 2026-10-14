@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { appUrl } from "@/lib/utils/app-url";
 /**
  * Polar.sh Payment Integration
@@ -326,32 +327,22 @@ export async function cancelPolarSubscription(
 /**
  * Verify Polar webhook signature
  */
-export function verifyPolarWebhook(
-  payload: string,
-  signature: string,
-  webhookSecret: string
-): boolean {
-  if (!webhookSecret) {
-    return false;
-  }
-
-  // Polar uses HMAC-SHA256 for webhook signatures
-  const crypto = require("crypto");
-  const hmac = crypto.createHmac("sha256", webhookSecret);
-  hmac.update(payload);
-  const digest = hmac.digest("hex");
-
-  return signature === digest;
-}
-
 /**
  * Parse webhook event from Polar
  */
+/** @deprecated The live webhook endpoint uses verifyPolarEvent with Standard Webhooks headers. */
+export function verifyPolarWebhook(payload: string, signature: string, webhookSecret: string): boolean {
+  if (!webhookSecret || !/^[a-f0-9]{64}$/i.test(signature)) return false;
+  const expected = createHmac("sha256", webhookSecret).update(payload).digest();
+  const actual = Buffer.from(signature, "hex");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
 export interface PolarWebhookEvent {
   type: string;
   data: {
     id: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   timestamp: string;
 }

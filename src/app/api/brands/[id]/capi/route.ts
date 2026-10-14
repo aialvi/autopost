@@ -38,7 +38,7 @@ export async function GET(
 
     const events = await db.query.capiEvents.findMany({
       where: platform
-        ? and(eq(capiEvents.brandId, brandId), eq(capiEvents.platform, platform as any))
+        ? and(eq(capiEvents.brandId, brandId), eq(capiEvents.platform, platform as typeof capiEvents.$inferSelect.platform))
         : eq(capiEvents.brandId, brandId),
       orderBy: [desc(capiEvents.createdAt)],
       limit,

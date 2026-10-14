@@ -173,7 +173,7 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
                   disabled={!canEdit || connecting}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Enter your store's myshopify.com domain
+                  Enter your store&apos;s myshopify.com domain
                 </p>
               </div>
 

@@ -26,7 +26,7 @@ export interface InlineKeyboardButton {
 
 export interface TelegramResponse {
   ok: boolean;
-  result?: any;
+  result?: Record<string, unknown>;
   description?: string;
   error_code?: number;
 }
