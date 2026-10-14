@@ -4,7 +4,7 @@
 
 AutoPost brings Shopify sales and Meta, Google, TikTok, and Snapchat ad performance together. Track profit after product costs and expenses, compare brands, review recommendations, and stay informed through Telegram summaries and alerts.
 
-[Explore the demo](https://autopost-sepia.vercel.app/login?demo=1) · [Deployment guide](DEPLOYMENT.md) · [Test suite](tests/README.md) · [GitHub Actions](.github/README.md)
+[Explore the demo](https://autopost-sepia.vercel.app/login?demo=1) · [Deployment guide](DEPLOYMENT.md) · [Test suite](tests/README.md)
 
 [![AutoPost profit dashboard with a contained chart, financial summaries, and navigation across all dashboard tabs](public/images/readme/autopost-dashboard.png)](https://autopost-sepia.vercel.app/login?demo=1)
 
@@ -165,7 +165,6 @@ AutoPost is configured for Vercel. Production needs the core environment values,
 GitHub CI runs a frozen pnpm install, lint, type checks, backend tests, a production build, and browser/API tests using synthetic configuration. The additional deployment, sync, migration, and security workflows are preserved and temporarily opt-in through repository variables.
 
 - [Deployment and integration setup](DEPLOYMENT.md)
-- [Workflow configuration and enablement](.github/README.md)
 
 ## Repository layout
 
