@@ -10,6 +10,8 @@ export interface ShopifyProduct {
   id: bigint;
   title: string;
   status: string;
+  handle?: string;
+  image?: { src: string } | null;
   variants: ShopifyVariant[];
   created_at: string;
   updated_at: string;
@@ -39,6 +41,7 @@ export interface ShopifyOrder {
   payment_gateway_names: string[];
   financial_status: string;
   fulfillment_status: string | null;
+  cancelled_at?: string | null;
   processed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -50,6 +53,8 @@ export interface ShopifyRefund {
   created_at: string;
   transactions: {
     amount: string;
+    kind: string;
+    status: string;
   }[];
 }
 
@@ -116,7 +121,7 @@ export class ShopifyClient {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.since_id) searchParams.set("since_id", params.since_id.toString());
-    searchParams.set("status", "active");
+
 
     const products: ShopifyProduct[] = [];
     let more = true;
@@ -124,7 +129,11 @@ export class ShopifyClient {
       const response = await this.request<{ products: ShopifyProduct[] }>(`/products.json?${searchParams}`);
       products.push(...response.products);
       more = response.products.length === (params?.limit ?? 50);
-      if (more) searchParams.set("since_id", String(response.products[response.products.length - 1].id));
+      if (more) {
+        const next = String(response.products[response.products.length - 1].id);
+        if (next === searchParams.get("since_id")) throw new Error("Shopify returned a repeated product cursor");
+        searchParams.set("since_id", next);
+      }
     }
     return products;
   }
@@ -156,7 +165,11 @@ export class ShopifyClient {
       const response = await this.request<{ orders: ShopifyOrder[] }>(`/orders.json?${searchParams}`);
       orders.push(...response.orders);
       more = response.orders.length === (params?.limit ?? 50);
-      if (more) searchParams.set("since_id", String(response.orders[response.orders.length - 1].id));
+      if (more) {
+        const next = String(response.orders[response.orders.length - 1].id);
+        if (next === searchParams.get("since_id")) throw new Error("Shopify returned a repeated order cursor");
+        searchParams.set("since_id", next);
+      }
     }
     return orders;
   }
@@ -178,7 +191,7 @@ export class ShopifyClient {
   }
 
   async getShop() {
-    const response = await this.request<{ shop: { id: bigint; name: string; email: string; currency: string } }>(
+    const response = await this.request<{ shop: { id: bigint; name: string; email: string; currency: string; domain?: string } }>(
       `/shop.json`
     );
     return response.shop;

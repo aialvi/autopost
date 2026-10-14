@@ -30,6 +30,7 @@ export const platformConnections = pgTable(
     metadata: jsonb("metadata").$type<{
       apiDomain?: string;
       myshopifyDomain?: string;
+      storefrontDomain?: string;
       webhookSecret?: string;
       businessAccountId?: string;
       adAccountId?: string;

@@ -57,7 +57,7 @@ test("repeated Meta syncs update one Neon snapshot and preserve actual purchase 
   try {
     globalThis.fetch = async (input, init) => {
       if (!String(input).includes("graph.facebook.com")) return fetchOriginal(input, init);
-      const data = String(input).includes("/insights?") ? [{spend,impressions:"100",clicks:"10",actions:[{action_type:"purchase",value:"2"}],action_values:[{action_type:"purchase",value:"70"}]}] : [{id:"9001",name:"Verified campaign",status:"ACTIVE",objective:"SALES",daily_budget:"1000"}];
+      const data = String(input).includes("/ads?") ? [{id:"ad-1",name:"Sneaker ad",status:"ACTIVE",creative:{thumbnail_url:"https://example.com/ad.jpg",object_story_spec:{link_data:{link:"https://store.myshopify.com/products/sneaker",message:"Try our sneakers"}}}}] : String(input).includes("/insights?") ? [{spend,impressions:"100",clicks:"10",actions:[{action_type:"purchase",value:"2"}],action_values:[{action_type:"purchase",value:"70"}]}] : [{id:"9001",name:"Verified campaign",status:"ACTIVE",objective:"SALES",daily_budget:"1000"}];
       return new Response(JSON.stringify({data}),{headers:{"Content-Type":"application/json"}});
     };
     const config = {platform:"meta" as const,accessToken:"fake",accountId:"fake"};
@@ -65,5 +65,9 @@ test("repeated Meta syncs update one Neon snapshot and preserve actual purchase 
     assert.equal((await syncAdData(id,config,"2026-10-14")).errors,0);
     const records=await db.query.adDataSnapshots.findMany({where:eq(schema.adDataSnapshots.brandId,id)});
     assert.equal(records.length,1);assert.equal(Number(records[0].spend),20);assert.equal(Number(records[0].revenueReported),70);
+    const campaigns = await db.query.adCampaigns.findMany({where:eq(schema.adCampaigns.brandId,id)});
+    const creatives = await db.query.ads.findMany({where:eq(schema.ads.campaignId,campaigns[0].id)});
+    assert.equal(creatives.length,1);assert.equal(creatives[0].creativeBody,"Try our sneakers");
+    await db.delete(schema.ads).where(eq(schema.ads.campaignId,campaigns[0].id));
   } finally { globalThis.fetch=fetchOriginal; await db.delete(schema.brands).where(eq(schema.brands.id,id)); }
 });

@@ -2,11 +2,13 @@ import { protectSecret, safeConnection } from "@/lib/platforms/connection-secret
 import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { platformConnections } from "@/lib/db/schema";
+import { platformConnections, brands } from "@/lib/db/schema";
 import { hasBrandAccess } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
-import { NextResponse } from "next/server";
-import { ShopifyClient } from "@/lib/platforms/shopify";
+import { after, NextResponse } from "next/server";
+import { ShopifyClient, syncShopifyStore } from "@/lib/platforms/shopify";
+
+export const maxDuration = 300;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -64,19 +66,24 @@ export async function POST(req: Request, { params }: RouteContext) {
 
   try {
     const body = await req.json();
-    const { storeDomain, accessToken } = body;
+    const storeDomain = typeof body.storeDomain === "string" ? body.storeDomain.trim().toLowerCase() : "";
+    const accessToken = typeof body.accessToken === "string" ? body.accessToken.trim() : "";
 
-    if (!storeDomain || !accessToken) {
+    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(storeDomain) || !accessToken) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     // Validate credentials by making a test request
     const client = new ShopifyClient({ storeDomain, accessToken });
+    let shop;
     try {
-      await client.getShop();
-    } catch (error) {
+      shop = await client.getShop();
+    } catch {
       return NextResponse.json({ error: "Invalid Shopify credentials" }, { status: 400 });
     }
+
+    const brand = await db.query.brands.findFirst({ where: eq(brands.id, brandId) });
+    if (brand?.currency !== shop.currency) return NextResponse.json({ error: `Set your brand currency to ${shop.currency} before connecting this store. Currency conversion is not supported.` }, { status: 400 });
 
     // Check for existing connection
     const existing = await db.query.platformConnections.findFirst({
@@ -86,6 +93,8 @@ export async function POST(req: Request, { params }: RouteContext) {
       ),
     });
 
+    if (existing && existing.accountId !== storeDomain) return NextResponse.json({ error: "Use a separate brand for a different Shopify store to keep sales history separate." }, { status: 400 });
+
     if (existing) {
       // Update existing connection
       await db
@@ -94,9 +103,9 @@ export async function POST(req: Request, { params }: RouteContext) {
           accountId: storeDomain,
           accessToken: protectSecret(accessToken),
           status: "active",
-          lastSyncedAt: new Date(),
+          lastSyncedAt: existing?.lastSyncedAt ?? null,
           updatedAt: new Date(),
-          metadata: { myshopifyDomain: storeDomain },
+          metadata: { myshopifyDomain: storeDomain, storefrontDomain: shop.domain },
         })
         .where(eq(platformConnections.id, existing.id));
     } else {
@@ -107,12 +116,16 @@ export async function POST(req: Request, { params }: RouteContext) {
         accountId: storeDomain,
         accessToken: protectSecret(accessToken),
         status: "active",
-        lastSyncedAt: new Date(),
-        metadata: { myshopifyDomain: storeDomain },
+        lastSyncedAt: null,
+        metadata: { myshopifyDomain: storeDomain, storefrontDomain: shop.domain },
       });
     }
 
-    return NextResponse.json({ success: true });
+    after(async () => {
+      try { await syncShopifyStore(brandId, storeDomain, accessToken); }
+      catch { console.error("Initial Shopify sync failed", brandId); }
+    });
+    return NextResponse.json({ success: true, syncStarted: true });
   } catch (error) {
     console.error("Error creating Shopify connection:", error);
     return NextResponse.json({ error: "Failed to connect store" }, { status: 500 });

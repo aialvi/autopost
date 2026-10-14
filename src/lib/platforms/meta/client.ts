@@ -38,8 +38,18 @@ export interface MetaAd {
   adset_id: string;
   name: string;
   status: string;
-  creative: {
-    thumbnail_url: string;
+  creative?: {
+    thumbnail_url?: string;
+    image_url?: string;
+    body?: string;
+    effective_object_story_id?: string;
+    instagram_permalink_url?: string;
+    object_url?: string;
+    object_story_spec?: {
+      link_data?: { link?: string; message?: string };
+      template_data?: { link?: string; message?: string };
+      video_data?: { message?: string; call_to_action?: { value?: { link?: string } } };
+    };
   };
   created_time: string;
   updated_time: string;
@@ -136,7 +146,7 @@ export class MetaClient {
       `/${adSetId}/ads`,
       {
         fields:
-          "id,account_id,adset_id,name,status,creative{thumbnail_url},created_time,updated_time",
+          "id,account_id,adset_id,name,status,creative{thumbnail_url,image_url,body,effective_object_story_id,instagram_permalink_url,object_url,object_story_spec},created_time,updated_time",
       }
     );
   }

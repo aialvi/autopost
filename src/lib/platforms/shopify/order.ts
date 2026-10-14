@@ -2,17 +2,18 @@ import { db } from "@/lib/db";
 import { shopifyOrders, shopifyOrderItems, shopifyProducts, shopifyVariants, transactionFees } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { calculateTransactionFee, hashEmail, type ShopifyOrder } from "./client";
+import { successfulRefundAmount } from "./refunds";
 import { snapshotId } from "../ads/snapshot";
 import { sendNewOrderAlert } from "@/lib/telegram/notifications";
 
 export async function persistShopifyOrder(brandId: string, order: ShopifyOrder) {
   const existing = await db.query.shopifyOrders.findFirst({ where: and(eq(shopifyOrders.brandId, brandId), eq(shopifyOrders.shopifyOrderId, Number(order.id))) });
-  const refundAmount = (order.refunds ?? []).reduce((sum, refund) => sum + (refund.transactions ?? []).reduce((total, transaction) => total + Number(transaction.amount || 0), 0), 0);
+  const refundAmount = successfulRefundAmount(order.refunds);
   const values = {
     brandId, shopifyOrderId: Number(order.id), orderNumber: String(order.order_number), emailHash: hashEmail(order.email),
     subtotalPrice: order.subtotal_price, totalShipping: order.total_shipping_price_set?.shop_money?.amount ?? "0", totalTax: order.total_tax, totalPrice: order.total_price, totalDiscounts: order.total_discounts,
     paymentGateway: order.payment_gateway_names?.[0] ?? null, financialStatus: order.financial_status, fulfillmentStatus: order.fulfillment_status ?? null,
-    refundAmount: refundAmount.toFixed(2), processedAt: order.processed_at ? new Date(order.processed_at) : null, updatedAt: new Date(),
+    refundAmount: refundAmount.toFixed(2), cancelledAt: order.cancelled_at ? new Date(order.cancelled_at) : null, processedAt: new Date(order.processed_at ?? order.created_at), updatedAt: new Date(),
   };
   const [saved] = await db.insert(shopifyOrders).values(values).onConflictDoUpdate({ target: [shopifyOrders.brandId, shopifyOrders.shopifyOrderId], set: values }).returning({ id: shopifyOrders.id });
   const variants = await db.select({ id: shopifyVariants.id, remoteId: shopifyVariants.shopifyVariantId, productId: shopifyVariants.productId, cost: shopifyVariants.costPerItem }).from(shopifyVariants).innerJoin(shopifyProducts, eq(shopifyVariants.productId, shopifyProducts.id)).where(eq(shopifyProducts.brandId, brandId));

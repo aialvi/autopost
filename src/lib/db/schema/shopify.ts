@@ -20,6 +20,8 @@ export const shopifyProducts = pgTable(
       .references(() => brands.id, { onDelete: "cascade" }),
     shopifyProductId: bigint("shopify_product_id", { mode: "number" })
       .notNull(),
+    handle: text("handle"),
+    imageUrl: text("image_url"),
     title: text("title").notNull(),
     status: text("status").notNull(),
     createdAt: timestamp("created_at", { mode: "date" })

@@ -7,6 +7,8 @@ import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { syncAdData, logSync, type AdPlatformConfig } from "@/lib/platforms/ads/sync";
 
+export const maxDuration = 300;
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

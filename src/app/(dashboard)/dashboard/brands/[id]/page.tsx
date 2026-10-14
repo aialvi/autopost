@@ -64,6 +64,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
+            <Link href={`/dashboard/brands/${brand.id}/shopify`}>Shopify & ads</Link>
+          </Button>
+          <Button variant="outline" asChild>
             <Link href={`/dashboard/brands/${brand.id}/settings`}>Settings</Link>
           </Button>
         </div>

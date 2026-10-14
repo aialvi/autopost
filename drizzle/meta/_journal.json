@@ -8,6 +8,13 @@
       "when": 1775450018832,
       "tag": "0000_rare_sister_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792002441701,
+      "tag": "0001_massive_hitman",
+      "breakpoints": true
     }
   ]
 }

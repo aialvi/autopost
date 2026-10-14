@@ -1,11 +1,12 @@
 import { revealSecret } from "../connection-secrets";
 import { db } from "@/lib/db";
-import { platformConnections, adCampaigns, adDataSnapshots, syncLogs } from "@/lib/db/schema";
+import { platformConnections, adCampaigns, adDataSnapshots, ads, syncLogs } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { MetaClient } from "../meta/client";
 import { SnapchatClient } from "../snapchat/client";
 import { GoogleAdsClient } from "../google/client";
 import { TikTokClient } from "../tiktok/client";
+import { metaCreative } from "./creative";
 import { snapshotId } from "./snapshot";
 import { getDates } from "@/lib/profit/metrics";
 
@@ -53,6 +54,7 @@ export async function syncAdData(brandId: string, config: AdPlatformConfig, date
     }
     default: throw new Error("Unsupported ad platform");
   }
+  let syncedAds = 0;
   let snapshots = 0;
   let errors = 0;
   for (const campaign of campaigns) {
@@ -64,13 +66,25 @@ export async function syncAdData(brandId: string, config: AdPlatformConfig, date
       const record = { brandId, platform: config.platform, campaignId: saved.id, date, spend: stats.spend.toFixed(2), revenueReported: stats.revenue.toFixed(2), impressions: Math.round(stats.impressions), clicks: Math.round(stats.clicks), conversions: Math.round(stats.conversions) };
       await db.insert(adDataSnapshots).values({ id: snapshotId(brandId, config.platform, saved.id, date), ...record }).onConflictDoUpdate({ target: adDataSnapshots.id, set: record });
       snapshots++;
+      if (config.platform === "meta") {
+        const client = new MetaClient({ accessToken: config.accessToken });
+        // Campaign /ads includes every ad set. Store creatives separately from
+        // campaign snapshots so P&L never adds the same spend twice.
+        const creatives = await client.getAds(campaign.id);
+        for (const ad of creatives) {
+          const existing = await db.query.ads.findFirst({ where: and(eq(ads.campaignId, saved.id), eq(ads.platformAdId, ad.id)) });
+          const row = { campaignId: saved.id, platformAdId: ad.id, name: ad.name, status: ad.status.toLowerCase(), ...metaCreative(ad), updatedAt: new Date() };
+          await db.insert(ads).values({ id: existing?.id ?? snapshotId(brandId, "meta-ad", saved.id, ad.id), ...row }).onConflictDoUpdate({ target: ads.id, set: row });
+          syncedAds++;
+        }
+      }
     } catch (error) {
       errors++;
       console.error("Campaign sync failed", config.platform, campaign.id, error instanceof Error ? error.message : "Unknown error");
     }
   }
   if (errors === 0) await db.update(platformConnections).set({ lastSyncedAt: new Date() }).where(and(eq(platformConnections.brandId, brandId), eq(platformConnections.platform, config.platform)));
-  return { campaigns: campaigns.length, adSets: 0, ads: 0, snapshots, errors };
+  return { campaigns: campaigns.length, adSets: 0, ads: syncedAds, snapshots, errors };
 }
 
 export async function logSync(brandId: string, platform: string, syncType: "ad_data" | "orders" | "products" | "token_refresh", status: "started" | "success" | "failed" | "partial", recordsProcessed: number, errorMessage?: string) {

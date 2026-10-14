@@ -26,8 +26,8 @@ test("overview shows five integrations, shared branding, role badge and brand co
 
 test("brand switching persists across reports and settings remain read-only", async ({ page }) => {
   await page.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Brands", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Open dashboard" })).toHaveCount(3);
-  await page.getByRole("button", { name: "Open dashboard" }).nth(1).click();
+  await expect(page.getByRole("button", { name: "Dashboard", exact: true })).toHaveCount(3);
+  await page.getByRole("button", { name: "Dashboard", exact: true }).nth(1).click();
   await expect(page.getByRole("heading", { name: "Terra Home", exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Switch brand:/ }).click();
   await page.getByRole("menuitem").filter({ hasText: "Bloom Skincare" }).click();

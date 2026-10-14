@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [storeDomain, setStoreDomain] = useState("");
   const [accessToken, setAccessToken] = useState("");
@@ -38,6 +40,7 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
     try {
       const response = await fetch(`/api/brands/${brandId}/connections/shopify`);
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to fetch connection status");
       if (data.connected) {
         setConnection(data.connection);
       } else {
@@ -68,6 +71,7 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
         throw new Error(data.error || "Failed to connect");
       }
 
+      setNotice("Store connected. Your first product and order sync is running; open Shopify & ads to check progress.");
       setShowForm(false);
       setStoreDomain("");
       setAccessToken("");
@@ -121,7 +125,8 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
         throw new Error(data.error || "Sync failed");
       }
 
-      alert(`Sync complete: ${data.result.created} created, ${data.result.updated} updated, ${data.result.errors} errors`);
+      setNotice(`Sync complete: ${data.result.created} created, ${data.result.updated} updated, ${data.result.errors} errors`);
+      await fetchConnection();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -142,6 +147,8 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {notice && <p role="status" className="text-sm">{notice}</p>}
+        <Button variant="outline" asChild><Link href={`/dashboard/brands/${brandId}/shopify`}>View Shopify & ads</Link></Button>
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
             {error}
@@ -189,7 +196,7 @@ export function ShopifyConnection({ brandId, canEdit }: ShopifyConnectionProps) 
                   disabled={!canEdit || connecting}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Create a custom app in Shopify Admin to get an access token
+                  Use a Shopify Admin API token with read_products, read_inventory, and read_orders access. Older orders require approved read_all_orders access.
                 </p>
               </div>
 

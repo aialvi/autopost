@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { setCurrentBrand } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 
@@ -26,10 +26,10 @@ export function SelectBrandButton({ brandId }: { brandId: string }) {
   }
 
   return (
-    <div className="flex-1">
-      <Button className="w-full" onClick={select} disabled={pending}>
-        {pending ? <Loader2 className="animate-spin" /> : <ArrowRight />}
-        {pending ? "Opening…" : "Open dashboard"}
+    <div className="min-w-0 flex-1">
+      <Button className="w-full px-2 text-xs" onClick={select} disabled={pending}>
+        {pending && <Loader2 className="animate-spin" />}
+        {pending ? "Opening…" : "Dashboard"}
       </Button>
       {error && <p role="alert" className="mt-2 text-sm text-destructive">Could not open brand. Try again.</p>}
     </div>

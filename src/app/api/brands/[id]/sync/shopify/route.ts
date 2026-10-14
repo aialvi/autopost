@@ -6,7 +6,9 @@ import { platformConnections } from "@/lib/db/schema";
 import { hasBrandAccess } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { syncShopifyProducts, syncShopifyOrders } from "@/lib/platforms/shopify";
+import { syncShopifyStore } from "@/lib/platforms/shopify";
+
+export const maxDuration = 300;
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -39,25 +41,16 @@ export async function POST(req: Request, { params }: RouteContext) {
       ),
     });
 
-    if (!connection) {
+    if (!connection || connection.status !== "active") {
       return NextResponse.json({ error: "Shopify not connected" }, { status: 400 });
     }
 
     const storeDomain = connection.accountId;
     const accessToken = revealSecret(connection.accessToken);
 
-    switch (type) {
-      case "products":
-        const productsResult = await syncShopifyProducts(brandId, storeDomain, accessToken);
-        return NextResponse.json({ type: "products", result: productsResult });
-
-      case "orders":
-        const ordersResult = await syncShopifyOrders(brandId, storeDomain, accessToken);
-        return NextResponse.json({ type: "orders", result: ordersResult });
-
-      default:
-        return NextResponse.json({ error: "Invalid sync type" }, { status: 400 });
-    }
+    if (!["all", "products", "orders"].includes(type)) return NextResponse.json({ error: "Invalid sync type" }, { status: 400 });
+    const result = await syncShopifyStore(brandId, storeDomain, accessToken, type);
+    return NextResponse.json({ type, result });
   } catch (error) {
     console.error("Error syncing Shopify data:", error);
     return NextResponse.json({ error: "Failed to sync data" }, { status: 500 });

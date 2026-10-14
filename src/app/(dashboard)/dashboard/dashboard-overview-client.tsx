@@ -133,7 +133,7 @@ export function DashboardOverviewClient({
       const res = await fetch(`/api/brands/${brandId}/sync${platform === "shopify" ? "/shopify" : ""}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(platform === "shopify" ? { type: "orders" } : { platform }),
+        body: JSON.stringify(platform === "shopify" ? { type: "all" } : { platform }),
       });
 
       const response = await res.json();
@@ -313,6 +313,11 @@ export function DashboardOverviewClient({
                 </Link>
               </Button>
               <Button asChild>
+                <Link href={`/dashboard/brands/${brandId}/shopify`}>
+                  Shopify & ads
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
                 <Link href={`/dashboard/brands/${brandId}/settings`}>
                   Brand Settings
                 </Link>

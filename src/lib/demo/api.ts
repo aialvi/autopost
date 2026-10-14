@@ -1,3 +1,4 @@
+import { getDemoShopify } from "./shopify";
 import { NextResponse } from "next/server";
 import { isDemoBrand, isDemoEnabled, isDemoUser } from "./config";
 import { getDemoAI, getDemoBrands, getDemoCapiEvents, getDemoComparison, getDemoConnection, getDemoInvoices, getDemoNotifications, getDemoOverview, getDemoPreferences, getDemoProfit, getDemoSubscription } from "./data";
@@ -34,6 +35,12 @@ export function getDemoApiResponse(userId: string | undefined, request: Request)
   try {
     switch (section) {
       case "": return json(getDemoBrands().find((brand) => brand.id === brandId));
+      case "shopify": {
+        const tab = url.searchParams.get("tab") ?? "products";
+        const page = Number(url.searchParams.get("page") ?? 1);
+        if (!["products", "orders", "ads"].includes(tab) || !Number.isSafeInteger(page) || page < 1 || page > 10000) return json({ error: "Invalid page or tab" }, 400);
+        return json(getDemoShopify(brandId, tab, page));
+      }
       case "profit": {
         const granularity = url.searchParams.get("granularity") ?? "overall";
         if (!["daily", "weekly", "monthly", "overall"].includes(granularity)) return json({ error: "Invalid granularity" }, 400);

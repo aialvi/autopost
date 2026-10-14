@@ -4,6 +4,7 @@ import { getUserBrands } from "@/lib/actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Settings } from "lucide-react";
 import { SelectBrandButton } from "@/components/dashboard/select-brand-button";
 
 export default async function BrandsPage() {
@@ -68,10 +69,15 @@ export default async function BrandsPage() {
                   <span>{brand.defaultCogsPercentage}%</span>
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
+              <div className="mt-4 flex items-start gap-2">
                 <SelectBrandButton brandId={brand.id} />
-                <Button variant="outline" size="sm" className="flex-1" asChild>
-                  <Link href={`/dashboard/brands/${brand.id}/settings`}>Settings</Link>
+                <Button variant="outline" className="flex-1 px-2 text-xs" asChild>
+                  <Link href={`/dashboard/brands/${brand.id}/shopify`}>Shopify &amp; Ads</Link>
+                </Button>
+                <Button variant="outline" size="icon" className="shrink-0" asChild>
+                  <Link href={`/dashboard/brands/${brand.id}/settings`} aria-label="Settings" title={`${brand.name} settings`}>
+                    <Settings aria-hidden="true" />
+                  </Link>
                 </Button>
               </div>
             </CardContent>

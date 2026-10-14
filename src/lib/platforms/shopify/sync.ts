@@ -5,8 +5,10 @@ import {
   shopifyProducts,
   shopifyVariants,
   syncLogs,
+  platformConnections,
 } from "@/lib/db/schema";
 import { ShopifyClient } from "./client";
+import { snapshotId } from "../ads/snapshot";
 import { eq, and } from "drizzle-orm";
 
 interface SyncProductsResult {
@@ -21,9 +23,6 @@ interface SyncOrdersResult {
   errors: number;
 }
 
-function bigintToNumber(value: bigint | number): number {
-  return typeof value === "bigint" ? Number(value) : value;
-}
 
 export async function syncShopifyProducts(
   brandId: string,
@@ -37,92 +36,20 @@ export async function syncShopifyProducts(
 
   try {
     const products = await client.getProducts({ limit: 250 });
-    for (const product of products) {
-      const inventoryIds = product.variants.map((variant) => variant.inventory_item_id).filter(Boolean);
-      if (inventoryIds.length) {
-        const inventory = await client.getInventoryItems(inventoryIds);
-        const costs = new Map(inventory.map((item) => [String(item.id), item.cost]));
-        for (const variant of product.variants) variant.inventory_item = { cost: costs.get(String(variant.inventory_item_id)) ?? null };
-      }
-    }
-
+    const inventoryIds = [...new Set(products.flatMap((product) => product.variants.map((variant) => variant.inventory_item_id)).filter(Boolean))];
+    const inventory = await client.getInventoryItems(inventoryIds);
+    const costs = new Map(inventory.map((item) => [String(item.id), item.cost]));
     for (const product of products) {
       try {
-        // Check if product exists
-        const existing = await db.query.shopifyProducts.findFirst({
-          where: and(
-            eq(shopifyProducts.brandId, brandId),
-            eq(shopifyProducts.shopifyProductId, bigintToNumber(product.id))
-          ),
-        });
-
-        if (existing) {
-          // Update existing product
-          await db
-            .update(shopifyProducts)
-            .set({
-              title: product.title,
-              status: product.status,
-              updatedAt: new Date(),
-            })
-            .where(eq(shopifyProducts.id, existing.id));
-          updated++;
-
-          // Update variants
-          for (const variant of product.variants) {
-            const existingVariant = await db.query.shopifyVariants.findFirst({
-              where: and(eq(shopifyVariants.productId, existing.id), eq(shopifyVariants.shopifyVariantId, bigintToNumber(variant.id))),
-            });
-
-            if (existingVariant) {
-              await db
-                .update(shopifyVariants)
-                .set({
-                  title: variant.title,
-                  sku: variant.sku,
-                  price: variant.price,
-                  costPerItem: variant.inventory_item?.cost || null,
-                  updatedAt: new Date(),
-                })
-                .where(eq(shopifyVariants.id, existingVariant.id));
-            } else {
-              await db.insert(shopifyVariants).values({
-                productId: existing.id,
-                shopifyVariantId: bigintToNumber(variant.id),
-                title: variant.title,
-                sku: variant.sku,
-                price: variant.price,
-                costPerItem: variant.inventory_item?.cost || null,
-                inventoryItemId: bigintToNumber(variant.inventory_item_id),
-              });
-            }
-          }
-        } else {
-          // Create new product
-          const [newProduct] = await db
-            .insert(shopifyProducts)
-            .values({
-              brandId,
-              shopifyProductId: bigintToNumber(product.id),
-              title: product.title,
-              status: product.status,
-            })
-            .returning();
-          created++;
-
-          // Sync variants
-          for (const variant of product.variants) {
-            await db.insert(shopifyVariants).values({
-              productId: newProduct.id,
-              shopifyVariantId: bigintToNumber(variant.id),
-              title: variant.title,
-              sku: variant.sku,
-              price: variant.price,
-              costPerItem: variant.inventory_item?.cost || null,
-              inventoryItemId: bigintToNumber(variant.inventory_item_id),
-            });
-          }
+        const existing = await db.query.shopifyProducts.findFirst({ where: and(eq(shopifyProducts.brandId, brandId), eq(shopifyProducts.shopifyProductId, Number(product.id))) });
+        const values = { brandId, shopifyProductId: Number(product.id), title: product.title, status: product.status, handle: product.handle ?? null, imageUrl: product.image?.src ?? null, updatedAt: new Date() };
+        const [saved] = await db.insert(shopifyProducts).values(values).onConflictDoUpdate({ target: [shopifyProducts.brandId, shopifyProducts.shopifyProductId], set: values }).returning({ id: shopifyProducts.id });
+        for (const variant of product.variants) {
+          const existingVariant = await db.query.shopifyVariants.findFirst({ where: and(eq(shopifyVariants.productId, saved.id), eq(shopifyVariants.shopifyVariantId, Number(variant.id))) });
+          const row = { productId: saved.id, shopifyVariantId: Number(variant.id), title: variant.title, sku: variant.sku, price: variant.price, costPerItem: costs.get(String(variant.inventory_item_id)) ?? null, inventoryItemId: Number(variant.inventory_item_id), updatedAt: new Date() };
+          await db.insert(shopifyVariants).values({ id: existingVariant?.id ?? snapshotId(brandId, "shopify-variant", saved.id, String(variant.id)), ...row }).onConflictDoUpdate({ target: shopifyVariants.id, set: row });
         }
+        if (existing) updated++; else created++;
       } catch (error) {
         console.error(`Error syncing product ${product.id}:`, error);
         errors++;
@@ -208,4 +135,25 @@ export async function updateSyncLog(
       completedAt: new Date(),
     })
     .where(eq(syncLogs.id, logId));
+}
+
+// All entry points import costs before orders, so order costs are snapshotted correctly.
+export async function syncShopifyStore(brandId: string, storeDomain: string, accessToken: string, type: "all" | "products" | "orders" = "all") {
+  const result = { created: 0, updated: 0, errors: 0 };
+  for (const step of type === "products" ? ["products"] : ["products", "orders"]) {
+    const logId = await logSync(brandId, "shopify", step as "products" | "orders", "started", 0);
+    try {
+      const part = step === "products" ? await syncShopifyProducts(brandId, storeDomain, accessToken) : await syncShopifyOrders(brandId, storeDomain, accessToken);
+      await updateSyncLog(logId, part.errors ? "partial" : "success", part.created + part.updated, part.errors ? `${part.errors} records failed. Check Shopify permissions and retry.` : undefined);
+      result.created += part.created; result.updated += part.updated; result.errors += part.errors;
+      if (part.errors) break;
+    } catch (error) {
+      await updateSyncLog(logId, "failed", 0, "Import failed. Check Shopify permissions and retry.");
+      throw error;
+    }
+  }
+  if (!result.errors && type !== "products") {
+    await db.update(platformConnections).set({ lastSyncedAt: new Date(), updatedAt: new Date() }).where(and(eq(platformConnections.brandId, brandId), eq(platformConnections.platform, "shopify"), eq(platformConnections.accountId, storeDomain), eq(platformConnections.status, "active")));
+  }
+  return result;
 }

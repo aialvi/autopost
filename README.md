@@ -129,6 +129,14 @@ Known product costs supply COGS; missing costs fall back to the brand’s config
 
 Transaction fees currently use gateway-rate estimates. Connect accounts in the brand’s reporting currency; automatic currency conversion is not provided. Platform-attributed revenue can overlap across attribution windows and should be interpreted alongside Shopify revenue and blended performance.
 
+## Shopify workspace
+
+Open **Brands → Shopify & Ads** to browse product variants, SKUs, prices and costs, order items and refunds, and Facebook/Instagram ad previews. The overview uses the same sales and COGS calculations as P&L. Missing product costs use the brand default; fees remain estimates. Refunds are counted only after successful refund transactions and reduce sales on the original order date.
+
+Apply `drizzle/0001_massive_hitman.sql` through the normal migration workflow before deploying this version. It adds product handles/images and ad copy/post URLs. Connecting Shopify starts an initial import; the scheduled sync refreshes products before orders. Manual sync also imports costs first. The workspace shows the last successful full sync and recent sync activity.
+
+The Shopify token needs `read_products`, `read_inventory`, and `read_orders`. Shopify normally limits order history to 60 days; older history requires approved `read_all_orders` access. The brand currency must match the Shopify shop currency. Connect Meta separately with access to the store’s ad account to import its ads. Creatives are stored separately from campaign metrics, so previews do not duplicate ad spend. Product matching uses destination URLs on the connected store’s verified domains; catalog ads and collection links may remain unmatched. Published ad posts open when Meta supplies a post reference. Organic posts and ad creation are not included.
+
 ## Testing and quality checks
 
 ```sh

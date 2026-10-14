@@ -5,7 +5,7 @@ import { calculateProfitMetrics } from "@/lib/profit/calculations";
 import { sendDailySummary, sendWeeklySummary, checkAndTriggerAlerts } from "@/lib/telegram/notifications";
 import { dateInTimezone } from "@/lib/telegram/time";
 import { syncAdData, logSync, type AdPlatformConfig } from "@/lib/platforms/ads/sync";
-import { syncShopifyProducts, syncShopifyOrders } from "@/lib/platforms/shopify/sync";
+import { syncShopifyStore } from "@/lib/platforms/shopify/sync";
 import { revealSecret } from "@/lib/platforms/connection-secrets";
 import { isDemoBrand } from "@/lib/demo/config";
 
@@ -36,7 +36,7 @@ export async function runNotificationJob(kind: "daily-summary" | "weekly-summary
 export async function runSyncJob(platform?: string) {
   const valid = ["shopify", "meta", "google", "snapchat", "tiktok"];
   if (platform && !valid.includes(platform)) throw new Error("Invalid platform");
-  const connections = await db.query.platformConnections.findMany({ where: platform ? and(eq(platformConnections.status, "active"), eq(platformConnections.platform, platform as typeof platformConnections.$inferSelect.platform)) : eq(platformConnections.status, "active"), orderBy: [asc(platformConnections.lastSyncedAt)], limit: 10 });
+  const connections = await db.query.platformConnections.findMany({ where: platform ? and(eq(platformConnections.status, "active"), eq(platformConnections.platform, platform as typeof platformConnections.$inferSelect.platform)) : eq(platformConnections.status, "active"), orderBy: [asc(platformConnections.updatedAt)], limit: 10 });
   let processed = 0;
   let failed = 0;
   for (const connection of connections) {
@@ -44,10 +44,8 @@ export async function runSyncJob(platform?: string) {
     try {
       if (connection.platform === "shopify") {
         const token = revealSecret(connection.accessToken);
-        const products = await syncShopifyProducts(connection.brandId, connection.accountId, token);
-        const orders = await syncShopifyOrders(connection.brandId, connection.accountId, token);
-        if (products.errors || orders.errors) throw new Error("Shopify sync completed with errors");
-        await db.update(platformConnections).set({ lastSyncedAt: new Date() }).where(eq(platformConnections.id, connection.id));
+        const result = await syncShopifyStore(connection.brandId, connection.accountId, token);
+        if (result.errors) throw new Error("Shopify sync completed with errors");
       } else {
         const config: AdPlatformConfig = { ...connection.metadata, platform: connection.platform as AdPlatformConfig["platform"], accountId: connection.accountId, accessToken: connection.accessToken, refreshToken: connection.refreshToken ?? undefined };
         const brand = await db.query.brands.findFirst({ where: eq(brands.id, connection.brandId) });
@@ -59,9 +57,10 @@ export async function runSyncJob(platform?: string) {
           if (result.errors) throw new Error("Ad sync completed with errors");
         }
       }
-      await logSync(connection.brandId, connection.platform, "ad_data", "success", 1);
+      if (connection.platform !== "shopify") await logSync(connection.brandId, connection.platform, "ad_data", "success", 1);
       processed++;
-    } catch (error) { failed++; await logSync(connection.brandId, connection.platform, "ad_data", "failed", 0, error instanceof Error ? error.message : "Unknown error"); }
+    } catch (error) { failed++; if (connection.platform !== "shopify") await logSync(connection.brandId, connection.platform, "ad_data", "failed", 0, error instanceof Error ? error.message : "Unknown error"); }
+    finally { await db.update(platformConnections).set({ updatedAt: new Date() }).where(eq(platformConnections.id, connection.id)); }
   }
   return { processed, failed };
 }

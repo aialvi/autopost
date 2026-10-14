@@ -95,6 +95,8 @@ export const ads = pgTable(
     name: text("name").notNull(),
     status: text("status").notNull(),
     creativeUrl: text("creative_url"),
+    creativeBody: text("creative_body"),
+    creativePostUrl: text("creative_post_url"),
     creativeThumbnail: text("creative_thumbnail"),
     createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
