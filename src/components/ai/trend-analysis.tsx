@@ -1,7 +1,6 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, Calendar } from "lucide-react";
 
 export interface TrendData {
@@ -15,6 +14,7 @@ export interface TrendData {
 }
 
 interface TrendAnalysisProps {
+  currency?: string;
   trend: TrendData;
 }
 
@@ -45,7 +45,7 @@ const confidenceColors = {
   low: "bg-orange-500",
 };
 
-export function TrendAnalysis({ trend }: TrendAnalysisProps) {
+export function TrendAnalysis({ trend, currency = "USD" }: TrendAnalysisProps) {
   const config = trendConfig[trend.trend];
   const Icon = config.icon;
 
@@ -91,7 +91,7 @@ export function TrendAnalysis({ trend }: TrendAnalysisProps) {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 text-sm">
                         <span className="font-medium w-24">
-                          ${day.projected.toFixed(2)}
+                          {new Intl.NumberFormat("en-US", { style: "currency", currency }).format(day.projected)}
                         </span>
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                           <div

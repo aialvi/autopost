@@ -1,5 +1,7 @@
 "use client";
 
+import { ExpenseManager } from "@/components/dashboard/expense-manager";
+import { aggregateMetrics, type ProfitMetrics as FullProfitMetrics } from "@/lib/profit/metrics";
 import { useState } from "react";
 import useSWR from "swr";
 import { fetchJSON } from "@/lib/utils/fetch-json";
@@ -8,25 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProfitMetricsCard, type ProfitMetrics } from "@/components/dashboard/profit-metrics-card";
-import { ProfitChart, type DailyProfitData } from "@/components/dashboard/profit-chart";
+import { ProfitChart } from "@/components/dashboard/profit-chart";
 import { PlatformBreakdown } from "@/components/dashboard/platform-breakdown";
 import { Loader2, Calendar } from "lucide-react";
 
 interface ProfitOverviewProps {
   brandId: string;
   currency?: string;
+  canEdit?: boolean;
   startDate: string;
   endDate: string;
   granularity: string;
 }
 
-export function ProfitOverview({ brandId, startDate, endDate, granularity, currency = "USD" }: ProfitOverviewProps) {
-  const formatMoney = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
+export function ProfitOverview({ brandId, startDate, endDate, granularity, currency = "USD", canEdit = false }: ProfitOverviewProps) {
   const [dateRange, setDateRange] = useState({ startDate, endDate });
   const [granularityValue, setGranularityValue] = useState(granularity);
   const params = new URLSearchParams({ ...dateRange, granularity: granularityValue, includeBreakdown: "true" });
   const { data: response, error, isLoading: loading, mutate } = useSWR<{
-    data: ProfitMetrics | DailyProfitData[];
+    data: ProfitMetrics | { date: string; metrics: FullProfitMetrics }[];
     breakdown?: Record<string, { spend: number; revenue: number; roas: number }>;
   }>(`/api/brands/${brandId}/profit?${params}`, fetchJSON);
   const data = {
@@ -38,7 +40,7 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity, curre
   function handlePreset(days: number) {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - days);
+    start.setDate(start.getDate() - days + 1);
 
     setDateRange({
       startDate: start.toISOString().split("T")[0],
@@ -127,39 +129,14 @@ export function ProfitOverview({ brandId, startDate, endDate, granularity, curre
         <>
           <ProfitChart data={data.chartData} currency={currency} />
 
-          {/* Summary metrics for period */}
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="p-4 rounded-lg border bg-card">
-              <div className="text-sm text-muted-foreground">Total Revenue</div>
-              <div className="text-2xl font-semibold mt-1">
-                {formatMoney(data.chartData.reduce((sum, d) => sum + d.metrics.revenue, 0))}
-              </div>
-            </div>
-            <div className="p-4 rounded-lg border bg-card">
-              <div className="text-sm text-muted-foreground">Net Profit</div>
-              <div className="text-2xl font-semibold mt-1">
-                {formatMoney(data.chartData.reduce((sum, d) => sum + d.metrics.netProfit, 0))}
-              </div>
-            </div>
-            <div className="p-4 rounded-lg border bg-card">
-              <div className="text-sm text-muted-foreground">Ad Spend</div>
-              <div className="text-2xl font-semibold mt-1">
-                {formatMoney(data.chartData.reduce((sum, d) => sum + d.metrics.adSpend, 0))}
-              </div>
-            </div>
-            <div className="p-4 rounded-lg border bg-card">
-              <div className="text-sm text-muted-foreground">Orders</div>
-              <div className="text-2xl font-semibold mt-1">
-                {data.chartData.reduce((sum, d) => sum + (d.metrics.orders || 0), 0).toLocaleString()}
-              </div>
-            </div>
-          </div>
+          <ProfitMetricsCard metrics={aggregateMetrics(data.chartData.map(row => row.metrics))} currency={currency} />
         </>
       )}
 
       {data.breakdown && (
         <PlatformBreakdown breakdown={data.breakdown} currency={currency} />
       )}
+      <ExpenseManager brandId={brandId} currency={currency} canEdit={canEdit} onChange={() => { void mutate(); }} />
     </div>
   );
 }

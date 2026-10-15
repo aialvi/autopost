@@ -1,4 +1,4 @@
-import { DateRangeError, getDates } from "@/lib/profit/metrics";
+import { DateRangeError, previousPeriod } from "@/lib/profit/metrics";
 import { enhanceRecommendations } from "@/lib/ai/provider";
 import { calculateProfitMetrics } from "@/lib/profit/calculations";
 import { getDemoApiResponse } from "@/lib/demo/api";
@@ -43,28 +43,15 @@ export async function GET(req: Request, { params }: RouteContext) {
     // Default to last 30 days
     const defaultEndDate = new Date();
     const defaultStartDate = new Date();
-    defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+    defaultStartDate.setDate(defaultStartDate.getDate() - 29);
 
     const dateRange: DateRange = {
       startDate: startDate || defaultStartDate.toISOString().split("T")[0],
       endDate: endDate || defaultEndDate.toISOString().split("T")[0],
     };
 
-    getDates(dateRange);
-    // Calculate previous period for comparison
-    const start = new Date(dateRange.startDate);
-    const end = new Date(dateRange.endDate);
-    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-    const previousEnd = new Date(start);
-    previousEnd.setDate(previousEnd.getDate() - 1);
-    const previousStart = new Date(previousEnd);
-    previousStart.setDate(previousStart.getDate() - daysDiff + 1);
-
-    const previousDateRange: DateRange = {
-      startDate: previousStart.toISOString().split("T")[0],
-      endDate: previousEnd.toISOString().split("T")[0],
-    };
+    if (!["all", "anomalies", "insights", "recommendations", "trends"].includes(type)) return NextResponse.json({ error: "Invalid analysis type" }, { status: 400 });
+    const previousDateRange = previousPeriod(dateRange);
 
     const result: Record<string, unknown> = {
       dateRange,
@@ -92,7 +79,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     if (error instanceof DateRangeError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("Error generating AI analysis:", error);
     return NextResponse.json(
-      { error: "Failed to generate analysis", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to generate analysis" },
       { status: 500 }
     );
   }

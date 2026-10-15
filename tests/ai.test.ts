@@ -5,7 +5,7 @@ import { calculateMetrics } from "../src/lib/profit/metrics";
 const metrics=calculateMetrics({revenue:1000,cogs:300,transactionFees:30,adSpend:200,customExpenses:20,orders:10});
 test("AI reports missing configuration honestly and does not call a provider",async()=>{
  const key=process.env.GEMINI_API_KEY;delete process.env.GEMINI_API_KEY;
- try { const result=await enhanceRecommendations(metrics,[]);assert.equal(result.analysisMethod,"rules");assert.ok(result.configurationMessage?.includes("GEMINI_API_KEY")); }finally{if(key)process.env.GEMINI_API_KEY=key;}
+ try { const result=await enhanceRecommendations(metrics,[]);assert.equal(result.analysisMethod,"rules");assert.ok(result.configurationMessage?.includes("not been configured")); }finally{if(key)process.env.GEMINI_API_KEY=key;}
 });
 test("AI validates provider responses and falls back on malformed recommendations",async()=>{
  const previous=globalThis.fetch;process.env.GEMINI_API_KEY="test-only";

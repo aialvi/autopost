@@ -16,7 +16,7 @@ test("Telegram honors preferences, deduplicates concurrent summaries, and record
    if(!String(input).startsWith("https://api.telegram.org/"))return originalFetch(input,init);
    deliveries++;return new Response(JSON.stringify(fail?{ok:false,description:"Test failure"}:{ok:true,result:{message_id:1}}));
   };
-  const summary={brandId,date:"2026-10-14",revenue:100,orders:2,adSpend:20,roas:5,topCampaigns:[]};
+  const summary={brandId,brandName:"Test",currency:"USD",netProfit:50,date:"2026-10-14",revenue:100,orders:2,adSpend:20,roas:5,topCampaigns:[]};
   await sendDailySummary(summary);assert.equal(deliveries,0);
   await db.update(schema.notificationPreferences).set({alertOnDailySummary:true}).where(eq(schema.notificationPreferences.brandId,brandId));
   await Promise.all([sendDailySummary(summary),sendDailySummary(summary)]);assert.equal(deliveries,1);

@@ -97,7 +97,6 @@ export function ProfitMetricsCard({ metrics, previousMetrics, currency = "USD" }
           value={metrics.netProfit}
           previous={previousMetrics?.netProfit}
           icon={TrendingUp}
-          invertColor
         />
         <MetricCard
           currency={currency}
@@ -108,7 +107,6 @@ export function ProfitMetricsCard({ metrics, previousMetrics, currency = "USD" }
           suffix="%"
           decimals={1}
           icon={Percent}
-          invertColor
         />
         <MetricCard
           currency={currency}
@@ -171,11 +169,12 @@ export function ProfitMetricsCard({ metrics, previousMetrics, currency = "USD" }
               prefix=""
               suffix="%"
               decimals={1}
-              invertColor
-            />
+                />
             <MetricCard
           currency={currency}
-              label="ROAS"
+              label="Blended ROAS"
+              prefix=""
+              suffix="x"
               value={metrics.roas}
               previous={previousMetrics?.roas}
               decimals={2}
@@ -192,8 +191,7 @@ export function ProfitMetricsCard({ metrics, previousMetrics, currency = "USD" }
               label="Gross Profit"
               value={metrics.grossProfit}
               previous={previousMetrics?.grossProfit}
-              invertColor
-            />
+                />
           </div>
         </CardContent>
       </Card>

@@ -105,7 +105,7 @@ export function NotificationPreferences({
       } else {
         setSaveStatus("error");
       }
-    } catch (error) {
+    } catch {
       setSaveStatus("error");
     } finally {
       setIsSaving(false);
@@ -131,7 +131,7 @@ export function NotificationPreferences({
       } else {
         setTestStatus("error");
       }
-    } catch (error) {
+    } catch {
       setTestStatus("error");
     } finally {
       setIsTesting(false);
@@ -240,11 +240,11 @@ export function NotificationPreferences({
         <CardContent className="space-y-4">
           {[
             { key: "alertOnLowRoas", label: "Low ROAS Alert", description: "When ROAS falls below threshold" },
-            { key: "alertOnSpendSpike", label: "Spend Spike Alert", description: "Unusual increase in ad spend" },
+            { key: "alertOnSpendSpike", label: "Spend Spike Alert", description: "Spend spikes and campaign daily-budget overruns" },
             { key: "alertOnRevenueDrop", label: "Revenue Drop Alert", description: "Significant decrease in revenue" },
             { key: "alertOnNewOrder", label: "New Order Alert", description: "Every time a new order comes in" },
-            { key: "alertOnDailySummary", label: "Daily Summary", description: "End of day report" },
-            { key: "alertOnWeeklySummary", label: "Weekly Summary", description: "Weekly performance report" },
+            { key: "alertOnDailySummary", label: "Daily Summary", description: "Previous completed day, from 9 AM in your time zone after quiet hours" },
+            { key: "alertOnWeeklySummary", label: "Weekly Summary", description: "Completed week, Mondays from 9 AM in your time zone after quiet hours" },
           ].map((alert) => (
             <div
               key={alert.key}
@@ -314,7 +314,7 @@ export function NotificationPreferences({
               <span className="text-sm text-muted-foreground">%</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Alert when daily spend increases by this percentage
+              Alert when spend exceeds its daily average or a campaign’s current daily budget by this percentage
             </p>
           </div>
 

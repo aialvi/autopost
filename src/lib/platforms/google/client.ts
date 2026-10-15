@@ -1,9 +1,10 @@
+import { googleBudgets } from "../ads/budgets";
 export interface GoogleAdsConfig { developerToken: string; clientId: string; clientSecret: string; refreshToken: string; customerId: string; loginCustomerId?: string }
-export interface GoogleAdsCampaign { id: string; name: string; status: string; serving_status: string; advertising_channel_type: string; campaign_budget: string }
+export interface GoogleAdsCampaign { id: string; name: string; status: string; serving_status: string; advertising_channel_type: string; campaign_budget: string; dailyBudget: string | null; lifetimeBudget: string | null }
 export interface GoogleAdsAdGroup { id: string; name: string; status: string; campaign: string }
 export interface GoogleAdsAd { id: string; name: string; status: string; type: string; ad_group: string }
 export interface GoogleAdsMetrics { campaign_id: string; impressions: number; clicks: number; cost_micros: number; conversions: number; conversions_value: number }
-type Row = { campaign?: Record<string, string>; adGroup?: Record<string, string>; adGroupAd?: { status?: string; ad?: Record<string, string> }; metrics?: Record<string, string | number> };
+type Row = { campaignBudget?: { amountMicros?: string; totalAmountMicros?: string; period?: string; explicitlyShared?: boolean }; campaign?: Record<string, string>; adGroup?: Record<string, string>; adGroupAd?: { status?: string; ad?: Record<string, string> }; metrics?: Record<string, string | number> };
 
 export class GoogleAdsClient {
   private token = "";
@@ -30,7 +31,7 @@ export class GoogleAdsClient {
     return rows;
   }
   async getCampaigns(): Promise<GoogleAdsCampaign[]> {
-    return (await this.query("SELECT campaign.id, campaign.name, campaign.status, campaign.serving_status, campaign.advertising_channel_type, campaign.campaign_budget FROM campaign")).map((row) => ({ id: String(row.campaign?.id), name: row.campaign?.name ?? "Campaign", status: row.campaign?.status ?? "UNKNOWN", serving_status: row.campaign?.servingStatus ?? "", advertising_channel_type: row.campaign?.advertisingChannelType ?? "", campaign_budget: row.campaign?.campaignBudget ?? "" }));
+    return (await this.query("SELECT campaign.id, campaign.name, campaign.status, campaign.serving_status, campaign.advertising_channel_type, campaign.campaign_budget, campaign_budget.amount_micros, campaign_budget.total_amount_micros, campaign_budget.period, campaign_budget.explicitly_shared FROM campaign")).map((row) => ({ ...googleBudgets(row.campaignBudget), id: String(row.campaign?.id), name: row.campaign?.name ?? "Campaign", status: row.campaign?.status ?? "UNKNOWN", serving_status: row.campaign?.servingStatus ?? "", advertising_channel_type: row.campaign?.advertisingChannelType ?? "", campaign_budget: row.campaign?.campaignBudget ?? "" }));
   }
   async getAdGroups(): Promise<GoogleAdsAdGroup[]> {
     return (await this.query("SELECT ad_group.id, ad_group.name, ad_group.status, ad_group.campaign FROM ad_group")).map((row) => ({ id: String(row.adGroup?.id), name: row.adGroup?.name ?? "Ad group", status: row.adGroup?.status ?? "UNKNOWN", campaign: row.adGroup?.campaign ?? "" }));

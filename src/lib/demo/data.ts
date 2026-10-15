@@ -111,7 +111,7 @@ export function getDemoComparison(brandIds: string[], now = new Date()) {
   const end = dateString(now);
   const start = dateString(new Date(now.getTime() - 29 * DAY));
   return brandIds.map((brandId) => ({
-    brandId, brandName: getDemoBrands(now).find((brand) => brand.id === brandId)?.name ?? "Demo brand",
+    brandId, currency: "USD", brandName: getDemoBrands(now).find((brand) => brand.id === brandId)?.name ?? "Demo brand",
     metrics: getDemoProfit(brandId, start, end, "overall").data as ProfitMetrics,
   }));
 }

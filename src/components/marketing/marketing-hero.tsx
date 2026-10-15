@@ -30,7 +30,7 @@ export function MarketingHero() {
 
             <Reveal delay={0.2} direction="up" duration={0.6}>
               <p className="text-lg sm:text-xl leading-relaxed text-[var(--ap-muted)] mb-8 max-w-[480px]">
-                Connect your Shopify store, manage ads across platforms, track real
+                Connect your Shopify store, monitor ads across platforms, track real
                 profit, and turn marketing data into smarter decisions — all from one
                 workspace.
               </p>

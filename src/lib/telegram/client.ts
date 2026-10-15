@@ -57,6 +57,7 @@ export async function sendMessage(
 
     const response = await fetch(url, {
       method: "POST",
+      signal: AbortSignal.timeout(20000),
       headers: {
         "Content-Type": "application/json",
       },
@@ -90,6 +91,7 @@ export async function setWebhook(webhookUrl: string): Promise<TelegramResponse> 
 
     const response = await fetch(url, {
       method: "POST",
+      signal: AbortSignal.timeout(20000),
       headers: {
         "Content-Type": "application/json",
       },

@@ -1,11 +1,11 @@
+import { insightsFromMetrics } from "./insights";
 import { db } from "@/lib/db";
 import {
+  brands,
   adCampaigns,
-  ads,
   adDataSnapshots,
-  shopifyOrders,
 } from "@/lib/db/schema";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import {
   calculateProfitMetrics,
   getDailyProfitData,
@@ -55,7 +55,7 @@ export interface Recommendation {
     conversions?: number;
   };
   recommendedChanges: {
-    action: "increase" | "decrease" | "pause" | "resume";
+    action?: "increase" | "decrease" | "pause" | "resume";
     targetValue?: number;
     budget?: number;
   };
@@ -109,6 +109,7 @@ export async function generateAnomalyAnalysis(
 ): Promise<Anomaly[]> {
   const { startDate, endDate } = dateRange;
   const anomalies: Anomaly[] = [];
+  const currency = (await db.query.brands.findFirst({ where: eq(brands.id, brandId), columns: { currency: true } }))?.currency ?? "USD";
 
   // Get daily ad spend data
   const spendData = await db
@@ -139,7 +140,7 @@ export async function generateAnomalyAnalysis(
   // Detect spend anomalies for each platform
   for (const platform of ["meta", "snapchat", "google", "tiktok"]) {
     const platformData = Object.entries(spendByDate)
-      .filter(([_, data]) => data[platform])
+      .filter(([, data]) => data[platform] !== undefined)
       .map(([date, data]) => ({ date, value: data[platform] || 0 }));
 
     if (platformData.length < 3) continue;
@@ -153,7 +154,7 @@ export async function generateAnomalyAnalysis(
         type: isSpike ? "spend_spike" : "unusual_metric",
         severity: Math.abs(anomaly.zScore) > 3 ? "high" : "medium",
         title: `${isSpike ? "Spend Spike" : "Low Spend"} on ${platform.charAt(0).toUpperCase() + platform.slice(1)}`,
-        description: `${isSpike ? "Unusually high" : "Unusually low"} ad spend of $${anomaly.value.toFixed(2)} detected on ${anomaly.date}`,
+        description: `${isSpike ? "Unusually high" : "Unusually low"} ad spend of ${currency} ${anomaly.value.toFixed(2)} detected on ${anomaly.date}`,
         value: anomaly.value,
         expectedValue: platformData.reduce((sum, d) => sum + d.value, 0) / platformData.length,
         deviation: anomaly.zScore,
@@ -242,8 +243,6 @@ export async function generateInsights(
   dateRange: DateRange,
   previousDateRange?: DateRange
 ): Promise<Insight[]> {
-  const insights: Insight[] = [];
-
   const currentMetrics = await calculateProfitMetrics(brandId, dateRange);
   let previousMetrics = null;
 
@@ -251,145 +250,7 @@ export async function generateInsights(
     previousMetrics = await calculateProfitMetrics(brandId, previousDateRange);
   }
 
-  // Revenue trend insight
-  const revenueChange = previousMetrics && previousMetrics.revenue > 0
-    ? ((currentMetrics.revenue - previousMetrics.revenue) / (previousMetrics.revenue || 1)) * 100
-    : 0;
-
-  if (revenueChange > 10) {
-    insights.push({
-      id: "revenue_growth",
-      type: "positive",
-      category: "trend",
-      title: "Revenue Growth",
-      description: `Revenue is up ${revenueChange.toFixed(1)}% compared to the previous period`,
-      metrics: [
-        { label: "Current Revenue", value: currentMetrics.revenue },
-        { label: "Change", value: revenueChange },
-      ],
-      recommendations: ["Consider scaling successful ad campaigns", "Analyze what drove the growth"],
-    });
-  } else if (revenueChange < -10) {
-    insights.push({
-      id: "revenue_decline",
-      type: "negative",
-      category: "warning",
-      title: "Revenue Decline",
-      description: `Revenue is down ${Math.abs(revenueChange).toFixed(1)}% compared to the previous period`,
-      metrics: [
-        { label: "Current Revenue", value: currentMetrics.revenue },
-        { label: "Change", value: revenueChange },
-      ],
-      recommendations: [
-        "Review underperforming campaigns",
-        "Check for seasonal factors",
-        "Analyze conversion rate changes",
-      ],
-    });
-  }
-
-  // ROAS insight
-  if (currentMetrics.roas < 1) {
-    insights.push({
-      id: "low_roas",
-      type: "negative",
-      category: "performance",
-      title: "Low ROAS Detected",
-      description: `Return on ad spend is ${currentMetrics.roas.toFixed(2)}x, below the break-even point`,
-      metrics: [
-        { label: "ROAS", value: currentMetrics.roas },
-        { label: "Ad Spend", value: currentMetrics.adSpend },
-        { label: "Revenue", value: currentMetrics.revenue },
-      ],
-      recommendations: [
-        "Pause or kill low-performing campaigns",
-        "Optimize ad creatives and targeting",
-        "Review bidding strategy",
-      ],
-    });
-  } else if (currentMetrics.roas > 3) {
-    insights.push({
-      id: "high_roas",
-      type: "positive",
-      category: "performance",
-      title: "Strong ROAS",
-      description: `Return on ad spend is ${currentMetrics.roas.toFixed(2)}x, indicating strong performance`,
-      metrics: [
-        { label: "ROAS", value: currentMetrics.roas },
-        { label: "Ad Spend", value: currentMetrics.adSpend },
-        { label: "Revenue", value: currentMetrics.revenue },
-      ],
-      recommendations: [
-        "Consider scaling budget on top campaigns",
-        "Test similar audiences and creatives",
-        "Monitor for saturation",
-      ],
-    });
-  }
-
-  // Profit margin insight
-  if (currentMetrics.profitMargin < 10) {
-    insights.push({
-      id: "low_margin",
-      type: "negative",
-      category: "warning",
-      title: "Low Profit Margin",
-      description: `Profit margin is ${currentMetrics.profitMargin.toFixed(1)}%, indicating tight margins`,
-      metrics: [
-        { label: "Profit Margin", value: currentMetrics.profitMargin },
-        { label: "Net Profit", value: currentMetrics.netProfit },
-      ],
-      recommendations: [
-        "Review COGS and find cost savings",
-        "Increase prices if market allows",
-        "Focus on higher-margin products",
-        "Optimize ad spend efficiency",
-      ],
-    });
-  }
-
-  // AOV insight
-  if (previousMetrics && currentMetrics.aov > previousMetrics.aov * 1.1) {
-    insights.push({
-      id: "aov_increase",
-      type: "positive",
-      category: "opportunity",
-      title: "AOV Increased",
-      description: `Average order value increased by ${((currentMetrics.aov - previousMetrics.aov) / previousMetrics.aov * 100).toFixed(1)}%`,
-      metrics: [
-        { label: "AOV", value: currentMetrics.aov, change: currentMetrics.aov - previousMetrics.aov },
-      ],
-      recommendations: [
-        "Analyze what drove higher AOV",
-        "Create bundles to maintain high AOV",
-        "Upsell strategies are working well",
-      ],
-    });
-  }
-
-  // Ad spend percentage insight
-  const adSpendPercentage = currentMetrics.revenue > 0 ? (currentMetrics.adSpend / currentMetrics.revenue) * 100 : 0;
-  if (adSpendPercentage > 40) {
-    insights.push({
-      id: "high_ad_spend",
-      type: "negative",
-      category: "warning",
-      title: "High Ad Spend Ratio",
-      description: `Ad spend represents ${adSpendPercentage.toFixed(1)}% of revenue`,
-      metrics: [
-        { label: "Ad Spend %", value: adSpendPercentage },
-        { label: "Ad Spend", value: currentMetrics.adSpend },
-        { label: "Revenue", value: currentMetrics.revenue },
-      ],
-      recommendations: [
-        "Focus on improving organic conversion rate",
-        "Optimize ad targeting to reduce waste",
-        "Improve landing page conversion",
-      ],
-    });
-  }
-
-  return insights;
+  return insightsFromMetrics(currentMetrics, previousMetrics);
 }
 
 /**
@@ -400,6 +261,7 @@ export async function generateRecommendations(
   dateRange: DateRange
 ): Promise<Recommendation[]> {
   const recommendations: Recommendation[] = [];
+  const currency = (await db.query.brands.findFirst({ where: eq(brands.id, brandId), columns: { currency: true } }))?.currency ?? "USD";
   const { startDate, endDate } = dateRange;
 
   // Get campaign performance data
@@ -409,6 +271,8 @@ export async function generateRecommendations(
       platformCampaignId: adCampaigns.platformCampaignId,
       platform: adCampaigns.platform,
       name: adCampaigns.name,
+      dailyBudget: adCampaigns.dailyBudget,
+      status: adCampaigns.status,
       totalSpend: sql<number>`CAST(SUM(CAST(${adDataSnapshots.spend} AS FLOAT)) AS FLOAT)`,
       totalImpressions: sql<number>`SUM(${adDataSnapshots.impressions})`,
       totalClicks: sql<number>`SUM(${adDataSnapshots.clicks})`,
@@ -429,6 +293,7 @@ export async function generateRecommendations(
     .having(sql`SUM(CAST(${adDataSnapshots.spend} AS FLOAT)) > 0`);
 
   for (const campaign of campaigns) {
+    if (!["active", "enabled", "running"].includes(campaign.status)) continue;
     const spend = parseFloat(campaign.totalSpend?.toString() || "0");
     const clicks = campaign.totalClicks || 0;
     const conversions = campaign.totalConversions || 0;
@@ -443,7 +308,7 @@ export async function generateRecommendations(
         id: `kill_${campaign.id}`,
         actionType: "kill",
         title: `Consider Pausing: ${campaign.name}`,
-        reasoning: `This campaign has spent $${spend.toFixed(2)} with only ${conversions} conversions. Platform-reported ROAS is ${roas.toFixed(2)}x.`,
+        reasoning: `This campaign has spent ${currency} ${spend.toFixed(2)} with only ${conversions} conversions. Platform-reported ROAS is ${roas.toFixed(2)}x.`,
         currentMetrics: { spend, roas, ctr, conversions },
         recommendedChanges: { action: "pause" },
         entityId: campaign.id,
@@ -461,8 +326,7 @@ export async function generateRecommendations(
         currentMetrics: { spend, roas, ctr, conversions },
         recommendedChanges: {
           action: "increase",
-          budget: spend * 1.5,
-          targetValue: conversions * 1.5,
+          ...(Number(campaign.dailyBudget) > 0 ? { budget: Math.round(Number(campaign.dailyBudget) * 1.2 * 100) / 100 } : {}),
         },
         entityId: campaign.id,
         entityType: "campaign",
@@ -475,9 +339,9 @@ export async function generateRecommendations(
         id: `watch_${campaign.id}`,
         actionType: "watch",
         title: `Monitor: ${campaign.name}`,
-        reasoning: `This campaign has low spend ($${spend.toFixed(2)}). Collect more data before making decisions.`,
+        reasoning: `This campaign has low spend (${currency} ${spend.toFixed(2)}). Collect more data before making decisions.`,
         currentMetrics: { spend, roas, ctr, conversions },
-        recommendedChanges: { action: "resume" },
+        recommendedChanges: {},
         entityId: campaign.id,
         entityType: "campaign",
       });
@@ -500,7 +364,7 @@ export async function generateTrendAnalysis(
 }> {
   const dailyData = await getDailyProfitData(brandId, dateRange);
 
-  if (dailyData.length < 7) {
+  if (dailyData.length < 7 || !dailyData.some(day => day.metrics.orders > 0)) {
     return {
       trend: "stable",
       growthRate: 0,
@@ -537,14 +401,14 @@ export async function generateTrendAnalysis(
   // Generate simple forecast for next 7 days
   const lastDate = new Date(dailyData[dailyData.length - 1].date);
   const forecast = [];
-  const variance = yValues.reduce((sum, y) => {
-    const predicted = slope * (yValues.indexOf(y)) + intercept;
+  const variance = yValues.reduce((sum, y, index) => {
+    const predicted = slope * index + intercept;
     return sum + Math.pow(y - predicted, 2);
   }, 0) / n;
 
   for (let i = 1; i <= 7; i++) {
     const futureDate = new Date(lastDate);
-    futureDate.setDate(futureDate.getDate() + i);
+    futureDate.setUTCDate(futureDate.getUTCDate() + i);
     const projected = slope * (n + i - 1) + intercept;
 
     let confidence: "high" | "medium" | "low";

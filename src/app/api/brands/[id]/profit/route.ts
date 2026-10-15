@@ -1,7 +1,6 @@
 import { DateRangeError, getDates } from "@/lib/profit/metrics";
 import { getDemoApiResponse } from "@/lib/demo/api";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { hasBrandAccess } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import {
@@ -42,7 +41,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     // Default to last 30 days if no dates provided
     const defaultEndDate = new Date();
     const defaultStartDate = new Date();
-    defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+    defaultStartDate.setDate(defaultStartDate.getDate() - 29);
 
     const dateRange: DateRange = {
       startDate: startDate || defaultStartDate.toISOString().split("T")[0],
@@ -50,6 +49,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     };
 
     getDates(dateRange);
+    if (!["overall", "daily", "weekly", "monthly"].includes(granularity)) return NextResponse.json({ error: "Invalid granularity" }, { status: 400 });
     let data;
 
     switch (granularity) {
@@ -81,7 +81,7 @@ export async function GET(req: Request, { params }: RouteContext) {
     if (error instanceof DateRangeError) return NextResponse.json({ error: error.message }, { status: 400 });
     console.error("Error fetching profit data:", error);
     return NextResponse.json(
-      { error: "Failed to fetch profit data", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: "Failed to fetch profit data" },
       { status: 500 }
     );
   }

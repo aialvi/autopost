@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   // Default to last 30 days
   const endDate = new Date().toISOString().split("T")[0];
-  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const startDate = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split("T")[0];
 

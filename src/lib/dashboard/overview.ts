@@ -1,3 +1,4 @@
+import { dateInTimezone } from "@/lib/telegram/time";
 import { db } from "@/lib/db";
 import {
   brands,
@@ -64,34 +65,10 @@ export async function getDashboardOverview(
     connectionMap[conn.platform] = conn.status === "active";
   }
 
-  // Get today's stats
-  const today = new Date().toISOString().split("T")[0];
-
-  const ordersResult = await db
-    .select({
-      totalRevenue: sql<number>`COALESCE(SUM(${shopifyOrders.totalPrice}), 0)`,
-      orderCount: count(),
-    })
-    .from(shopifyOrders)
-    .where(
-      and(
-        eq(shopifyOrders.brandId, brandId),
-        eq(shopifyOrders.financialStatus, "paid"),
-        sql`DATE(${shopifyOrders.processedAt}) = ${today}`
-      )
-    );
-
-  const adSpendResult = await db
-    .select({
-      totalSpend: sql<number>`COALESCE(SUM(CAST(${adDataSnapshots.spend} AS FLOAT)), 0)`,
-    })
-    .from(adDataSnapshots)
-    .where(
-      and(
-        eq(adDataSnapshots.brandId, brandId),
-        eq(adDataSnapshots.date, today)
-      )
-    );
+  const brand = await db.query.brands.findFirst({ where: eq(brands.id, brandId) });
+  if (!brand) throw new Error("Brand not found");
+  const today = dateInTimezone(new Date(), brand.timezone);
+  const todayMetrics = await calculateProfitMetrics(brandId, { startDate: today, endDate: today });
 
   const activeCampaignsResult = await db
     .select({
@@ -106,8 +83,8 @@ export async function getDashboardOverview(
     );
 
   // Get top campaigns by spend (last 7 days)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgo = new Date(`${today}T00:00:00Z`);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
 
   const topCampaignsData = await db
@@ -124,7 +101,7 @@ export async function getDashboardOverview(
     .where(
       and(
         eq(adCampaigns.brandId, brandId),
-        gte(adDataSnapshots.date, sevenDaysAgoStr)
+        gte(adDataSnapshots.date, sevenDaysAgoStr), lte(adDataSnapshots.date, today)
       )
     )
     .groupBy(adCampaigns.id, adCampaigns.name, adCampaigns.platform, adCampaigns.status)
@@ -163,7 +140,7 @@ export async function getDashboardOverview(
   for (const order of recentOrders) {
     recentActivity.push({
       type: "order",
-      message: `New order ${order.orderNumber} - $${parseFloat(order.totalPrice?.toString() || "0").toFixed(2)}`,
+      message: `New order ${order.orderNumber} - ${new Intl.NumberFormat("en-US", { style: "currency", currency: brand.currency }).format(Number(order.totalPrice))}`,
       timestamp: order.processedAt || new Date(),
     });
   }
@@ -174,9 +151,9 @@ export async function getDashboardOverview(
   return {
     connections: connectionMap as DashboardOverview["connections"],
     quickStats: {
-      todayRevenue: parseFloat(ordersResult[0]?.totalRevenue?.toString() || "0"),
-      todayOrders: ordersResult[0]?.orderCount || 0,
-      todayAdSpend: parseFloat(adSpendResult[0]?.totalSpend?.toString() || "0"),
+      todayRevenue: todayMetrics.revenue,
+      todayOrders: todayMetrics.orders,
+      todayAdSpend: todayMetrics.adSpend,
       activeCampaigns: activeCampaignsResult[0]?.count || 0,
     },
     topCampaigns,
@@ -190,7 +167,7 @@ export async function getDashboardOverview(
 export async function getMultiBrandComparison(
   brandIds: string[],
   dateRange: DateRange
-): Promise<Array<{ brandId: string; brandName: string; metrics: Awaited<ReturnType<typeof calculateProfitMetrics>> }>> {
+): Promise<Array<{ brandId: string; brandName: string; currency: string; metrics: Awaited<ReturnType<typeof calculateProfitMetrics>> }>> {
   const comparisons = [];
 
   for (const brandId of brandIds) {
@@ -198,7 +175,7 @@ export async function getMultiBrandComparison(
       // Get brand name
       const brand = await db.query.brands.findFirst({
         where: eq(brands.id, brandId),
-        columns: { name: true },
+        columns: { name: true, currency: true },
       });
 
       if (!brand) continue;
@@ -208,6 +185,7 @@ export async function getMultiBrandComparison(
       comparisons.push({
         brandId,
         brandName: brand.name,
+        currency: brand.currency,
         metrics,
       });
     } catch (error) {

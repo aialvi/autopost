@@ -45,3 +45,9 @@ export function expenseForDate(expense: { amount: string | number; frequency: st
 export function aggregateMetrics(metrics: ProfitMetrics[]): ProfitMetrics {
   return calculateMetrics(metrics.reduce((sum, row) => ({ revenue: sum.revenue + row.revenue, cogs: sum.cogs + row.cogs, transactionFees: sum.transactionFees + row.transactionFees, adSpend: sum.adSpend + row.adSpend, customExpenses: sum.customExpenses + row.customExpenses, orders: sum.orders + row.orders }), { revenue: 0, cogs: 0, transactionFees: 0, adSpend: 0, customExpenses: 0, orders: 0 }));
 }
+
+export function previousPeriod(range: DateRange): DateRange {
+  const days = getDates(range).length;
+  const end = new Date(`${range.startDate}T00:00:00Z`).getTime() - 86400000;
+  return { startDate: new Date(end - (days - 1) * 86400000).toISOString().slice(0, 10), endDate: new Date(end).toISOString().slice(0, 10) };
+}

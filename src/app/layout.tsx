@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AutoPost - Multi-brand ad performance & profit",
-  description: "AI-powered multi-brand ad management. Track Shopify profit, ad spend, COGS-aware P&L, ROAS, Telegram alerts, and AI recommendations across Meta, Google, TikTok, and Snapchat.",
+  description: "AI-powered multi-brand ad reporting. Track Shopify profit, ad spend, COGS-aware P&L, ROAS, Telegram alerts, and AI recommendations across Meta, Google, TikTok, and Snapchat.",
 };
 
 export default function RootLayout({

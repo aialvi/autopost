@@ -13,14 +13,15 @@ import { SelectBrandButton } from "@/components/dashboard/select-brand-button";
 
 interface PageProps {
   searchParams: Promise<{
+    brandId?: string;
     compare?: string;
   }>;
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const brandId = await getActiveBrandId();
-
   const params = await searchParams;
+  const brandId = await getActiveBrandId(params.brandId);
+
   const compareIds = params.compare?.split(",");
 
   const result = await getUserBrands();
@@ -110,7 +111,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   if (selectedIds.length > 1) {
     const now = new Date();
     const endDate = now.toISOString().split("T")[0];
-    const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const startDate = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     comparisonData = { comparisons: demo ? getDemoComparison(selectedIds) : await getMultiBrandComparison(selectedIds, { startDate, endDate }) };
   }
 

@@ -41,6 +41,15 @@ export function getDemoApiResponse(userId: string | undefined, request: Request)
         if (!["products", "orders", "ads"].includes(tab) || !Number.isSafeInteger(page) || page < 1 || page > 10000) return json({ error: "Invalid page or tab" }, 400);
         return json(getDemoShopify(brandId, tab, page));
       }
+      case "campaigns": {
+        const report = getDemoProfit(brandId, startDate, endDate, "overall");
+        const platform = url.searchParams.get("platform") ?? "all";
+        const page = Number(url.searchParams.get("page") ?? "1");
+        if (!["all", "meta", "google", "tiktok", "snapchat"].includes(platform) || !Number.isInteger(page) || page < 1 || page > 10000) return json({ error: "Invalid filters" }, 400);
+        const campaigns = getDemoOverview(brandId).topCampaigns.filter(c => platform === "all" || c.platform === platform).map(c => ({ ...c, dailyBudget: "150.00", lifetimeBudget: null, spend: report.breakdown[c.platform].spend, revenue: report.breakdown[c.platform].revenue, roas: report.breakdown[c.platform].roas, impressions: 24000, clicks: 840, conversions: 38, syncedDays: Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86400000) + 1, updatedAt: now.toISOString() }));
+        return json({ campaigns: page === 1 ? campaigns : [], total: campaigns.length, page, pageSize: 25, breakdown: report.breakdown });
+      }
+      case "expenses": return json({ expenses: [], note: "Demo profit reports include illustrative operating expenses. Create your own workspace to enter itemized costs." });
       case "profit": {
         const granularity = url.searchParams.get("granularity") ?? "overall";
         if (!["daily", "weekly", "monthly", "overall"].includes(granularity)) return json({ error: "Invalid granularity" }, 400);

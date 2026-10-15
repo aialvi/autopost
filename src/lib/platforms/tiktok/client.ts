@@ -1,6 +1,6 @@
 export interface TikTokConfig { appId: string; appSecret: string; accessToken: string }
 export interface TikTokAdAccount { advertiser_id: string; name: string; timezone: string; currency: string }
-export interface TikTokCampaign { campaign_id: string; advertiser_id: string; campaign_name: string; status: string; objective: string; budget: number }
+export interface TikTokCampaign { campaign_id: string; advertiser_id: string; campaign_name: string; status: string; objective: string; budget: number; budget_mode?: string }
 export interface TikTokAd { ad_id: string; adgroup_id: string; campaign_id: string; name: string; status: string; creative?: { image_url?: string } }
 export interface TikTokStats { impressions: number; clicks: number; spend: number; conversions: number; revenue: number }
 type Params = Record<string, string | number | unknown[]>;

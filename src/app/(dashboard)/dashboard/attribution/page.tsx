@@ -5,8 +5,8 @@ import { getUserBrands } from "@/lib/actions";
 import { AttributionBreakdown } from "@/components/attribution/attribution-breakdown";
 import { CAPIEventsList } from "@/components/capi/capi-events-list";
 
-export default async function AttributionPage() {
-  const brandId = await getActiveBrandId();
+export default async function AttributionPage({ searchParams }: { searchParams: Promise<{ brandId?: string }> }) {
+  const brandId = await getActiveBrandId((await searchParams).brandId);
 
   if (!brandId) {
     redirect("/dashboard");

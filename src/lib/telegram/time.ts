@@ -12,3 +12,10 @@ export function isQuietHours(preferences: { quietHoursStart: string | null; quie
   const end = minutes(preferences.quietHoursEnd);
   return start < end ? current >= start && current < end : current >= start || current < end;
 }
+
+// Hourly jobs retry after quiet hours; the notification log reserves each report period.
+export function summaryIsDue(kind: "daily-summary" | "weekly-summary", preferences: { timezone: string; quietHoursStart: string | null; quietHoursEnd: string | null }, now = new Date()): boolean {
+  const local = new Date(`${dateInTimezone(now, preferences.timezone)}T00:00:00Z`);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: preferences.timezone, hour: "2-digit", hourCycle: "h23" }).format(now));
+  return hour >= 9 && (kind === "daily-summary" || local.getUTCDay() === 1) && !isQuietHours(preferences, now);
+}

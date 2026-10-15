@@ -3,7 +3,8 @@ import { brands, notificationPreferences, platformConnections } from "@/lib/db/s
 import { eq, and, asc } from "drizzle-orm";
 import { calculateProfitMetrics } from "@/lib/profit/calculations";
 import { sendDailySummary, sendWeeklySummary, checkAndTriggerAlerts } from "@/lib/telegram/notifications";
-import { dateInTimezone } from "@/lib/telegram/time";
+import { getCampaignReport } from "@/lib/platforms/ads/report";
+import { summaryIsDue, dateInTimezone } from "@/lib/telegram/time";
 import { syncAdData, logSync, type AdPlatformConfig } from "@/lib/platforms/ads/sync";
 import { syncShopifyStore } from "@/lib/platforms/shopify/sync";
 import { revealSecret } from "@/lib/platforms/connection-secrets";
@@ -20,12 +21,23 @@ export async function runNotificationJob(kind: "daily-summary" | "weekly-summary
       else {
         const brand = await db.query.brands.findFirst({ where: eq(brands.id, brandId) });
         if (!brand) continue;
-        const end = new Date(`${dateInTimezone(new Date(), brand.timezone)}T00:00:00Z`); end.setUTCDate(end.getUTCDate() - 1);
-        const start = new Date(end); if (kind === "weekly-summary") start.setUTCDate(start.getUTCDate() - 6);
-        const metrics = await calculateProfitMetrics(brandId, { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) });
-        const context = { brandId, date: end.toISOString().slice(0, 10), revenue: metrics.revenue, orders: metrics.orders, adSpend: metrics.adSpend, roas: metrics.roas, topCampaigns: [] };
-        if (kind === "daily-summary") await sendDailySummary(context);
-        else await sendWeeklySummary({ ...context, weekNumber: Math.ceil((end.getTime() - Date.UTC(end.getUTCFullYear(), 0, 1)) / 604800000) + 1 });
+        const now = new Date();
+        for (const pref of preferences.filter(pref => pref.brandId === brandId && pref.telegramChatId && (kind === "daily-summary" ? pref.alertOnDailySummary : pref.alertOnWeeklySummary))) {
+          if (!summaryIsDue(kind, pref, now)) continue;
+          try {
+            const end = new Date(`${dateInTimezone(now, brand.timezone)}T00:00:00Z`);
+            end.setUTCDate(end.getUTCDate() - 1);
+            if (kind === "weekly-summary") end.setUTCDate(end.getUTCDate() - end.getUTCDay());
+            const start = new Date(end);
+            if (kind === "weekly-summary") start.setUTCDate(start.getUTCDate() - 6);
+            const range = { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) };
+            const metrics = await calculateProfitMetrics(brandId, range);
+            const report = await getCampaignReport(brandId, { ...range, platform: "all", page: 1 });
+            const context = { brandId, userId: pref.userId, brandName: brand.name, currency: brand.currency, startDate: range.startDate, date: range.endDate, revenue: metrics.revenue, netProfit: metrics.netProfit, orders: metrics.orders, adSpend: metrics.adSpend, roas: metrics.roas, topCampaigns: report.campaigns.filter(c => c.spend > 0).slice(0, 3) };
+            if (kind === "daily-summary") await sendDailySummary(context);
+            else await sendWeeklySummary(context);
+          } catch (error) { failed++; console.error("Summary recipient failed", brandId, pref.userId, error instanceof Error ? error.message : "Unknown error"); }
+        }
       }
       processed++;
     } catch (error) { failed++; console.error("Notification job failed", kind, brandId, error instanceof Error ? error.message : "Unknown error"); }

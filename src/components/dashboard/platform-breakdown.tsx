@@ -39,6 +39,7 @@ export function PlatformBreakdown({ breakdown, currency = "USD" }: PlatformBreak
     <Card>
       <CardHeader>
         <CardTitle>Platform Breakdown</CardTitle>
+        <p className="text-xs text-muted-foreground">Revenue reported by each platform. Attribution windows can overlap; compare with Shopify revenue in P&amp;L.</p>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

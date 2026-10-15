@@ -47,6 +47,7 @@ interface ComparisonData {
   comparisons: Array<{
     brandId: string;
     brandName: string;
+    currency: string;
     metrics: {
       revenue: number;
       netProfit: number;

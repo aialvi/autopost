@@ -30,6 +30,7 @@ export interface ShopifyVariant {
 }
 
 export interface ShopifyOrder {
+  currency?: string;
   id: bigint;
   order_number: number;
   email: string;

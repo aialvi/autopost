@@ -8,8 +8,8 @@ import { SubscriptionCard } from "@/components/billing/subscription-card";
 import { BillingOverview } from "@/components/billing/billing-overview";
 import { getBrandSubscription } from "@/lib/payments/management";
 
-export default async function BillingPage() {
-  const brandId = await getActiveBrandId();
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ brandId?: string }> }) {
+  const brandId = await getActiveBrandId((await searchParams).brandId);
 
   if (!brandId) {
     redirect("/dashboard");

@@ -124,7 +124,7 @@ const features: FeatureData[] = [
     reversed: true,
   },
   {
-    eyebrow: "Ads Management",
+    eyebrow: "Ads Reporting",
     headline: (
       <>
         One place for

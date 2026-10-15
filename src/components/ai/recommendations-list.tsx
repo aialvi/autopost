@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   X,
   TrendingUp,
-  Pause,
   Play,
   Eye,
   Rocket,
@@ -26,13 +25,14 @@ export interface Recommendation {
     conversions?: number;
   };
   recommendedChanges: {
-    action: "increase" | "decrease" | "pause" | "resume";
+    action?: "increase" | "decrease" | "pause" | "resume";
     targetValue?: number;
     budget?: number;
   };
 }
 
 interface RecommendationsListProps {
+  currency?: string;
   recommendations: Recommendation[];
   onAction?: (id: string, action: "approve" | "decline") => void;
 }
@@ -68,7 +68,8 @@ const actionConfig = {
   },
 };
 
-export function RecommendationsList({ recommendations, onAction }: RecommendationsListProps) {
+export function RecommendationsList({ recommendations, onAction, currency = "USD" }: RecommendationsListProps) {
+  const money = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
   if (!recommendations || recommendations.length === 0) {
     return (
       <Card>
@@ -122,7 +123,7 @@ export function RecommendationsList({ recommendations, onAction }: Recommendatio
                       {rec.currentMetrics.spend !== undefined && (
                         <div className="flex items-center gap-1 text-xs">
                           <DollarSign className="h-3 w-3 text-muted-foreground" />
-                          <span className="font-medium">${rec.currentMetrics.spend.toFixed(2)}</span>
+                          <span className="font-medium">{money(rec.currentMetrics.spend)}</span>
                         </div>
                       )}
                       {rec.currentMetrics.roas !== undefined && (
@@ -143,7 +144,7 @@ export function RecommendationsList({ recommendations, onAction }: Recommendatio
                     {rec.recommendedChanges.budget && (
                       <div className="text-xs bg-background/50 rounded px-2 py-1 inline-block">
                         <span className="text-muted-foreground">Suggested budget: </span>
-                        <span className="font-medium">${rec.recommendedChanges.budget.toFixed(2)}</span>
+                        <span className="font-medium">{money(rec.recommendedChanges.budget)}</span>
                       </div>
                     )}
 

@@ -40,7 +40,7 @@ export async function persistShopifyOrder(brandId: string, order: ShopifyOrder) 
     await db.insert(transactionFees).values({ id, ...row }).onConflictDoUpdate({ target: transactionFees.id, set: row });
   }
   if (!existing && order.financial_status === "paid" && process.env.TELEGRAM_BOT_TOKEN) {
-    try { await sendNewOrderAlert({ brandId, orderNumber: String(order.order_number), total: Number(order.total_price) }); } catch { console.error("Order saved, but notification delivery failed"); }
+    try { await sendNewOrderAlert({ brandId, orderNumber: String(order.order_number), total: Number(order.total_price), currency: order.currency }); } catch { console.error("Order saved, but notification delivery failed"); }
   }
   return { id: saved.id, created: !existing };
 }

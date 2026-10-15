@@ -219,3 +219,7 @@ tests/                   Backend, database integration, and browser suites
 | `pnpm db:migrate` | Apply migrations with database configuration loaded. |
 | `pnpm db:push` | Apply the current schema directly; review changes before use. |
 | `pnpm db:studio` | Open Drizzle Studio with database configuration loaded. |
+
+### Landing-page coverage
+
+See [the feature coverage audit](docs/landing-coverage.md) for app entry points, reporting semantics, automated verification, and live integration prerequisites. Campaign reporting is available under **Campaigns**; expense entry is under **Profit → Expenses**. Telegram summaries run hourly and become eligible from 9 AM in each recipient’s timezone (Mondays for weekly summaries), after quiet hours.

@@ -1,3 +1,5 @@
+import { formatSummary, type SummaryData } from "./summary";
+import { getCampaignReport } from "@/lib/platforms/ads/report";
 import { appUrl } from "@/lib/utils/app-url";
 import { snapshotId } from "@/lib/platforms/ads/snapshot";
 import { isQuietHours, dateInTimezone } from "./time";
@@ -14,21 +16,22 @@ import {
   brands,
   brandUsers,
 } from "@/lib/db/schema";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte } from "drizzle-orm";
 import {
   sendMessage,
   escapeHtml,
   createKeyboard,
-  type TelegramMessage,
 } from "./client";
 
 export interface NotificationContext {
   brandId: string;
   userId?: string;
   brandName?: string;
+  eventKey?: string;
 }
 
 export interface LowRoasAlertContext {
+  currency?: string;
   userId?: string;
   brandId: string;
   campaignName: string;
@@ -39,6 +42,7 @@ export interface LowRoasAlertContext {
 }
 
 export interface SpendSpikeAlertContext {
+  currency?: string;
   userId?: string;
   brandId: string;
   platform: string;
@@ -48,6 +52,7 @@ export interface SpendSpikeAlertContext {
 }
 
 export interface RevenueDropAlertContext {
+  currency?: string;
   userId?: string;
   brandId: string;
   currentRevenue: number;
@@ -56,6 +61,7 @@ export interface RevenueDropAlertContext {
 }
 
 export interface NewOrderAlertContext {
+  currency?: string;
   userId?: string;
   brandId: string;
   orderNumber: string;
@@ -63,7 +69,7 @@ export interface NewOrderAlertContext {
   customerEmail?: string;
 }
 
-export interface DailySummaryContext {
+export interface DailySummaryContext extends SummaryData {
   userId?: string;
   brandId: string;
   date: string;
@@ -108,7 +114,7 @@ async function sendNotification(
   const memberships = await db.query.brandUsers.findMany({ where: eq(brandUsers.brandId, brandId) });
   const allowedUsers = new Set(memberships.map((member) => member.userId));
   const flags: Record<string, keyof typeof notificationPreferences.$inferSelect> = {
-    low_roas: "alertOnLowRoas", spend_spike: "alertOnSpendSpike", revenue_drop: "alertOnRevenueDrop", new_order: "alertOnNewOrder", daily_summary: "alertOnDailySummary", weekly_summary: "alertOnWeeklySummary",
+    budget_exceeded: "alertOnSpendSpike", low_roas: "alertOnLowRoas", spend_spike: "alertOnSpendSpike", revenue_drop: "alertOnRevenueDrop", new_order: "alertOnNewOrder", daily_summary: "alertOnDailySummary", weekly_summary: "alertOnWeeklySummary",
   };
 
   for (const pref of preferences) {
@@ -124,13 +130,13 @@ async function sendNotification(
     // Summaries send once a day; alert jobs suppress repeats for two hours.
     const now = new Date();
     const since = new Date(now.getTime() - (type.endsWith("summary") ? 20 * 3600000 : 2 * 3600000));
-    const alreadySent = await db.query.notificationLogs.findFirst({ where: and(eq(notificationLogs.brandId, brandId), eq(notificationLogs.userId, pref.userId), eq(notificationLogs.type, type), eq(notificationLogs.status, "sent"), gte(notificationLogs.sentAt, since)) });
+    const alreadySent = !context.eventKey && await db.query.notificationLogs.findFirst({ where: and(eq(notificationLogs.brandId, brandId), eq(notificationLogs.userId, pref.userId), eq(notificationLogs.type, type), eq(notificationLogs.status, "sent"), gte(notificationLogs.sentAt, since)) });
     if (alreadySent) continue;
     const message = messageBuilder(pref);
     const keyboard = keyboardBuilder ? keyboardBuilder() : undefined;
 
     const slot = type.endsWith("summary") ? dateInTimezone(now, pref.timezone) : String(Math.floor(now.getTime() / (2 * 3600000)));
-    const id = snapshotId(brandId, type, pref.userId, slot);
+    const id = snapshotId(brandId, type, pref.userId, context.eventKey ?? slot);
     const [reserved] = await db.insert(notificationLogs).values({ id, brandId, userId: pref.userId, type, channel: "telegram", status: "pending", title: type.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()), message, sentAt: now }).onConflictDoUpdate({ target: notificationLogs.id, set: { status: "pending", error: null }, setWhere: eq(notificationLogs.status, "failed") }).returning({ id: notificationLogs.id });
     if (!reserved) continue;
     const result = await sendMessage({
@@ -163,7 +169,7 @@ Platform: ${escapeHtml(platform.toUpperCase())}
 
 Current ROAS: <b>${currentRoas.toFixed(2)}x</b>
 Threshold: ${threshold}x
-Ad Spend: $${adSpend.toFixed(2)}
+Ad Spend: ${context.currency ?? "USD"} ${adSpend.toFixed(2)}
 
 Recommendation: Consider pausing or optimizing this campaign.`;
     },
@@ -189,8 +195,8 @@ export async function sendSpendSpikeAlert(context: SpendSpikeAlertContext): Prom
 
 Platform: ${escapeHtml(platform.toUpperCase())}
 
-Today's Spend: <b>$${currentSpend.toFixed(2)}</b>
-Expected: $${expectedSpend.toFixed(2)}
+Today's Spend: <b>${context.currency ?? "USD"} ${currentSpend.toFixed(2)}</b>
+Expected: ${context.currency ?? "USD"} ${expectedSpend.toFixed(2)}
 Deviation: +${deviation.toFixed(0)}%
 
 This is unusual spending activity. Please review your campaigns.`;
@@ -215,8 +221,8 @@ export async function sendRevenueDropAlert(context: RevenueDropAlertContext): Pr
       const emoji = dropPercentage > 40 ? "🚨" : dropPercentage > 20 ? "⚠️" : "📉";
       return `${emoji} <b>Revenue Drop Alert</b>
 
-Today's Revenue: <b>$${currentRevenue.toFixed(2)}</b>
-Previous: $${previousRevenue.toFixed(2)}
+Yesterday's Revenue: <b>${context.currency ?? "USD"} ${currentRevenue.toFixed(2)}</b>
+Previous: ${context.currency ?? "USD"} ${previousRevenue.toFixed(2)}
 Drop: ${dropPercentage.toFixed(1)}%
 
 This is a significant drop. Check for:
@@ -238,13 +244,13 @@ export async function sendNewOrderAlert(context: NewOrderAlertContext): Promise<
   const { brandId, orderNumber, total, customerEmail } = context;
 
   await sendNotification(
-    { brandId, userId: context.userId },
+    { brandId, userId: context.userId, eventKey: orderNumber },
     "new_order",
     () => {
       return `🛒 <b>New Order</b>
 
 Order: <code>${escapeHtml(orderNumber)}</code>
-Total: <b>$${total.toFixed(2)}</b>
+Total: <b>${context.currency ?? "USD"} ${total.toFixed(2)}</b>
 ${customerEmail ? `Customer: ${escapeHtml(customerEmail)}` : ""}
 
 Time: ${new Date().toLocaleTimeString()}`;
@@ -256,62 +262,15 @@ Time: ${new Date().toLocaleTimeString()}`;
  * Send daily summary
  */
 export async function sendDailySummary(context: DailySummaryContext): Promise<void> {
-  const { brandId, date, revenue, orders, adSpend, roas, topCampaigns } = context;
-
-  await sendNotification(
-    { brandId, userId: context.userId },
-    "daily_summary",
-    () => {
-      let message = `📊 <b>Daily Summary - ${date}</b>\n\n`;
-      message += `💰 Revenue: <b>$${revenue.toFixed(2)}</b>\n`;
-      message += `📦 Orders: ${orders}\n`;
-      message += `📣 Ad Spend: $${adSpend.toFixed(2)}\n`;
-      message += `📈 ROAS: ${roas.toFixed(2)}x\n\n`;
-
-      if (topCampaigns.length > 0) {
-        message += `<b>Top Campaigns:</b>\n`;
-        topCampaigns.forEach((campaign, i) => {
-          message += `${i + 1}. ${escapeHtml(campaign.name)} - $${campaign.spend.toFixed(2)} (${campaign.roas.toFixed(2)}x)\n`;
-        });
-      }
-
-      return message;
-    },
-    () =>
-      createKeyboard([
-        { text: "View Dashboard", url: `${appUrl()}/dashboard?brandId=${brandId}` },
-        { text: "Full Report", url: `${appUrl()}/dashboard/profit?brandId=${brandId}` },
-      ])
-  );
+  await sendNotification({ ...context, eventKey: context.date }, "daily_summary", () => formatSummary(context), () => createKeyboard([
+    { text: "Full Report", url: `${appUrl()}/dashboard/profit?brandId=${context.brandId}&startDate=${context.date}&endDate=${context.date}` },
+  ]));
 }
 
-/**
- * Send weekly summary
- */
-export async function sendWeeklySummary(
-  context: DailySummaryContext & { weekNumber: number }
-): Promise<void> {
-  const { brandId, revenue, orders, adSpend, roas, weekNumber } = context;
-
-  await sendNotification(
-    { brandId, userId: context.userId },
-    "weekly_summary",
-    () => {
-      return `📊 <b>Weekly Summary - Week ${weekNumber}</b>
-
-💰 Total Revenue: <b>$${revenue.toFixed(2)}</b>
-📦 Total Orders: ${orders}
-📣 Ad Spend: $${adSpend.toFixed(2)}
-📈 Average ROAS: ${roas.toFixed(2)}x
-
-Great week! Keep up the momentum 🚀`;
-    },
-    () =>
-      createKeyboard([
-        { text: "View Dashboard", url: `${appUrl()}/dashboard?brandId=${brandId}` },
-        { text: "AI Insights", url: `${appUrl()}/dashboard/ai?brandId=${brandId}` },
-      ])
-  );
+export async function sendWeeklySummary(context: DailySummaryContext & { weekNumber?: number }): Promise<void> {
+  await sendNotification({ ...context, eventKey: context.date }, "weekly_summary", () => formatSummary(context, true), () => createKeyboard([
+    { text: "Full Report", url: `${appUrl()}/dashboard/profit?brandId=${context.brandId}&startDate=${context.startDate ?? context.date}&endDate=${context.date}` },
+  ]));
 }
 
 /**
@@ -350,16 +309,30 @@ export async function checkAndTriggerAlerts(brandId: string): Promise<void> {
     calculateProfitMetrics(brandId, { startDate: yesterday, endDate: yesterday }),
     calculateProfitMetrics(brandId, { startDate: start.toISOString().slice(0, 10), endDate: yesterday }),
   ]);
+  const budgetCampaigns = [];
+  let page = 1;
+  while (true) {
+    const report = await getCampaignReport(brandId, { startDate: today, endDate: today, platform: "all", page });
+    budgetCampaigns.push(...report.campaigns.filter(c => Number(c.dailyBudget) > 0 && c.spend > Number(c.dailyBudget)));
+    if (page * report.pageSize >= report.total) break;
+    page++;
+  }
   for (const pref of preferences) {
     if (!pref.enabled || !pref.telegramChatId) continue;
-    if (pref.alertOnLowRoas && current.adSpend > 0 && current.roas < Number(pref.lowRoasThreshold)) await sendLowRoasAlert({ brandId, userId: pref.userId, campaignName: `${brand.name} · All campaigns`, platform: "all platforms", currentRoas: current.roas, threshold: Number(pref.lowRoasThreshold), adSpend: current.adSpend });
+    for (const campaign of budgetCampaigns) {
+      const over = (campaign.spend / Number(campaign.dailyBudget) - 1) * 100;
+      if (!pref.alertOnSpendSpike || over < Number(pref.spendSpikeThreshold)) continue;
+      await sendNotification({ brandId, userId: pref.userId, eventKey: `${today}:${campaign.id}` }, "budget_exceeded", () =>
+        `⚡ <b>Campaign budget alert · ${escapeHtml(brand.name)}</b>\n${escapeHtml(campaign.name)} (${campaign.platform})\nSpend: ${brand.currency} ${campaign.spend.toFixed(2)}\nCurrent daily budget: ${brand.currency} ${Number(campaign.dailyBudget).toFixed(2)}\n${over.toFixed(0)}% above budget. Review in your ad platform.`, () => createKeyboard([{ text: "View campaigns", url: `${appUrl()}/dashboard/campaigns?brandId=${brandId}` }]));
+    }
+    if (pref.alertOnLowRoas && current.adSpend > 0 && current.roas < Number(pref.lowRoasThreshold)) await sendLowRoasAlert({ brandId, currency: brand.currency, userId: pref.userId, campaignName: `${brand.name} · All campaigns`, platform: "all platforms", currentRoas: current.roas, threshold: Number(pref.lowRoasThreshold), adSpend: current.adSpend });
     const averageSpend = baseline.adSpend / 7;
     const deviation = averageSpend > 0 ? (current.adSpend - averageSpend) / averageSpend * 100 : 0;
-    if (pref.alertOnSpendSpike && deviation >= Number(pref.spendSpikeThreshold)) await sendSpendSpikeAlert({ brandId, userId: pref.userId, platform: "all platforms", currentSpend: current.adSpend, expectedSpend: averageSpend, deviation });
+    if (pref.alertOnSpendSpike && averageSpend > 0 && deviation > 0 && deviation >= Number(pref.spendSpikeThreshold)) await sendSpendSpikeAlert({ brandId, currency: brand.currency, userId: pref.userId, platform: "all platforms", currentSpend: current.adSpend, expectedSpend: averageSpend, deviation });
     // Compare complete days to avoid a partial morning appearing as a revenue drop.
     const earlier = new Date(previous); earlier.setUTCDate(earlier.getUTCDate() - 1);
     const prior = await calculateProfitMetrics(brandId, { startDate: earlier.toISOString().slice(0, 10), endDate: earlier.toISOString().slice(0, 10) });
     const drop = prior.revenue > 0 ? (prior.revenue - lastDay.revenue) / prior.revenue * 100 : 0;
-    if (pref.alertOnRevenueDrop && drop >= Number(pref.revenueDropThreshold)) await sendRevenueDropAlert({ brandId, userId: pref.userId, currentRevenue: lastDay.revenue, previousRevenue: prior.revenue, dropPercentage: drop });
+    if (pref.alertOnRevenueDrop && drop > 0 && drop >= Number(pref.revenueDropThreshold)) await sendRevenueDropAlert({ brandId, currency: brand.currency, userId: pref.userId, currentRevenue: lastDay.revenue, previousRevenue: prior.revenue, dropPercentage: drop });
   }
 }

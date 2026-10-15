@@ -8,8 +8,8 @@ import { NotificationPreferences } from "@/components/notifications/notification
 import { NotificationHistory } from "@/components/notifications/notification-history";
 import { getNotificationPreferences } from "@/lib/telegram/notifications";
 
-export default async function NotificationsPage() {
-  const brandId = await getActiveBrandId();
+export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ brandId?: string }> }) {
+  const brandId = await getActiveBrandId((await searchParams).brandId);
 
   if (!brandId) {
     redirect("/dashboard");

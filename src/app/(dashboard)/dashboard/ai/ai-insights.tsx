@@ -15,11 +15,12 @@ import { TrendAnalysis } from "@/components/ai/trend-analysis";
 
 interface AIInsightsProps {
   brandId: string;
+  currency?: string;
   startDate: string;
   endDate: string;
 }
 
-export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
+export function AIInsights({ brandId, startDate, endDate, currency = "USD" }: AIInsightsProps) {
   const [dateRange, setDateRange] = useState({ startDate, endDate });
   const [dismissed, setDismissed] = useState<string[]>([]);
   const { data: response, error, isLoading: loading, isValidating: refreshing, mutate } = useSWR<{
@@ -32,7 +33,7 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
   function handlePreset(days: number) {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - days);
+    start.setDate(start.getDate() - days + 1);
 
     setDateRange({
       startDate: start.toISOString().split("T")[0],
@@ -69,6 +70,7 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
         <div className="flex items-center gap-2">
           <Input
             type="date"
+            aria-label="Start date"
             value={dateRange.startDate}
             onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
             className="w-auto"
@@ -76,6 +78,7 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
           <span className="text-muted-foreground">to</span>
           <Input
             type="date"
+            aria-label="End date"
             value={dateRange.endDate}
             onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
             className="w-auto"
@@ -101,7 +104,7 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
         <AnomalyList anomalies={data.anomalies || []} />
 
         {/* Trend Analysis */}
-        {data.trends && <TrendAnalysis trend={data.trends} />}
+        {data.trends && <TrendAnalysis currency={currency} trend={data.trends} />}
       </div>
 
       {/* Insights */}
@@ -110,6 +113,7 @@ export function AIInsights({ brandId, startDate, endDate }: AIInsightsProps) {
       {/* Recommendations */}
       {data.recommendations && (
         <RecommendationsList
+          currency={currency}
           recommendations={data.recommendations.filter((item) => !dismissed.includes(item.id))}
           onAction={handleRecommendationAction}
         />

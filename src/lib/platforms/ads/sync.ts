@@ -1,3 +1,4 @@
+import { budgetAmount, tiktokBudgets } from "./budgets";
 import { revealSecret } from "../connection-secrets";
 import { db } from "@/lib/db";
 import { platformConnections, adCampaigns, adDataSnapshots, ads, syncLogs } from "@/lib/db/schema";
@@ -17,7 +18,7 @@ export interface AdPlatformConfig {
   appId?: string; appSecret?: string;
 }
 type Performance = { spend: number; impressions: number; clicks: number; conversions: number; revenue: number };
-type Campaign = { id: string; name: string; status: string; objective?: string; dailyBudget?: string | null };
+type Campaign = { id: string; name: string; status: string; objective?: string; dailyBudget?: string | null; lifetimeBudget?: string | null };
 
 export async function syncAdData(brandId: string, config: AdPlatformConfig, date: string) {
   getDates({ startDate: date, endDate: date });
@@ -27,7 +28,7 @@ export async function syncAdData(brandId: string, config: AdPlatformConfig, date
   switch (config.platform) {
     case "meta": {
       const client = new MetaClient({ accessToken: config.accessToken });
-      campaigns = (await client.getCampaigns(config.accountId)).map((campaign) => ({ id: campaign.id, name: campaign.name, status: campaign.status.toLowerCase(), objective: campaign.objective, dailyBudget: campaign.daily_budget ? (Number(campaign.daily_budget) / 100).toFixed(2) : null }));
+      campaigns = (await client.getCampaigns(config.accountId)).map((campaign) => ({ id: campaign.id, name: campaign.name, status: campaign.status.toLowerCase(), objective: campaign.objective, dailyBudget: budgetAmount(campaign.daily_budget, 100), lifetimeBudget: budgetAmount(campaign.lifetime_budget, 100) }));
       performance = async (id) => {
         const rows = await client.getInsights("campaign", id, date, date);
         return rows.reduce((sum, row) => ({ spend: sum.spend + Number(row.spend), impressions: sum.impressions + Number(row.impressions), clicks: sum.clicks + Number(row.clicks), conversions: sum.conversions + MetaClient.getConversionCount(row), revenue: sum.revenue + MetaClient.getConversionValue(row) }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
@@ -42,13 +43,13 @@ export async function syncAdData(brandId: string, config: AdPlatformConfig, date
     }
     case "google": {
       const client = new GoogleAdsClient({ developerToken: config.developerToken ?? "", clientId: config.clientId ?? "", clientSecret: config.clientSecret ?? "", refreshToken: config.refreshToken ?? "", customerId: config.accountId });
-      campaigns = (await client.getCampaigns()).map((campaign) => ({ id: campaign.id, name: campaign.name, status: campaign.status.toLowerCase(), objective: campaign.advertising_channel_type }));
+      campaigns = (await client.getCampaigns()).map((campaign) => ({ id: campaign.id, name: campaign.name, status: campaign.status.toLowerCase(), objective: campaign.advertising_channel_type, dailyBudget: campaign.dailyBudget, lifetimeBudget: campaign.lifetimeBudget }));
       performance = async (id) => (await client.getStats("campaign", date, date, id)).reduce((sum, row) => ({ spend: sum.spend + GoogleAdsClient.microsToDollars(row.cost_micros), impressions: sum.impressions + row.impressions, clicks: sum.clicks + row.clicks, conversions: sum.conversions + row.conversions, revenue: sum.revenue + row.conversions_value }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
       break;
     }
     case "tiktok": {
       const client = new TikTokClient({ accessToken: config.accessToken, appId: config.appId ?? "", appSecret: config.appSecret ?? "" });
-      campaigns = (await client.getCampaigns(config.accountId)).map((campaign) => ({ id: String(campaign.campaign_id), name: campaign.campaign_name, status: campaign.status === "ENABLE" ? "active" : campaign.status.toLowerCase(), objective: campaign.objective, dailyBudget: Number(campaign.budget).toFixed(2) }));
+      campaigns = (await client.getCampaigns(config.accountId)).map((campaign) => ({ id: String(campaign.campaign_id), name: campaign.campaign_name, status: campaign.status === "ENABLE" ? "active" : campaign.status.toLowerCase(), objective: campaign.objective, ...tiktokBudgets(campaign.budget, campaign.budget_mode) }));
       performance = async (id) => (await client.getStats(config.accountId, "CAMPAIGN", [id], date, date)).reduce((sum, row) => ({ spend: sum.spend + row.spend, impressions: sum.impressions + row.impressions, clicks: sum.clicks + row.clicks, conversions: sum.conversions + row.conversions, revenue: sum.revenue + row.revenue }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 });
       break;
     }
@@ -59,8 +60,8 @@ export async function syncAdData(brandId: string, config: AdPlatformConfig, date
   let errors = 0;
   for (const campaign of campaigns) {
     try {
-      const values = { brandId, platform: config.platform, platformCampaignId: campaign.id, name: campaign.name, status: campaign.status, objective: campaign.objective, dailyBudget: campaign.dailyBudget, updatedAt: new Date() };
-      const [saved] = await db.insert(adCampaigns).values(values).onConflictDoUpdate({ target: [adCampaigns.brandId, adCampaigns.platform, adCampaigns.platformCampaignId], set: { name: values.name, status: values.status, objective: values.objective, dailyBudget: values.dailyBudget, updatedAt: values.updatedAt } }).returning({ id: adCampaigns.id });
+      const values = { brandId, platform: config.platform, platformCampaignId: campaign.id, name: campaign.name, status: campaign.status, objective: campaign.objective, dailyBudget: campaign.dailyBudget ?? null, lifetimeBudget: campaign.lifetimeBudget ?? null, updatedAt: new Date() };
+      const [saved] = await db.insert(adCampaigns).values(values).onConflictDoUpdate({ target: [adCampaigns.brandId, adCampaigns.platform, adCampaigns.platformCampaignId], set: { name: values.name, status: values.status, objective: values.objective, dailyBudget: values.dailyBudget, lifetimeBudget: values.lifetimeBudget, updatedAt: values.updatedAt } }).returning({ id: adCampaigns.id });
       const stats = await performance(campaign.id);
       if (![stats.spend, stats.revenue, stats.impressions, stats.clicks, stats.conversions].every(Number.isFinite)) throw new Error("Platform returned invalid metrics");
       const record = { brandId, platform: config.platform, campaignId: saved.id, date, spend: stats.spend.toFixed(2), revenueReported: stats.revenue.toFixed(2), impressions: Math.round(stats.impressions), clicks: Math.round(stats.clicks), conversions: Math.round(stats.conversions) };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { setCurrentBrand } from "@/lib/actions";
@@ -25,9 +25,12 @@ export function BrandSwitcher({
   readOnly?: boolean;
 }) {
   const router = useRouter();
+  const queryBrand = useSearchParams().get("brandId");
+  const pathBrand = usePathname().match(/^\/dashboard\/brands\/([^/]+)/)?.[1];
+  const displayedId = brands.some(brand => brand.id === (pathBrand ?? queryBrand)) ? (pathBrand ?? queryBrand) : currentBrandId;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const currentBrand = brands.find((brand) => brand.id === currentBrandId);
+  const currentBrand = brands.find((brand) => brand.id === displayedId);
 
   async function selectBrand(brandId: string) {
     setPending(true);
@@ -64,7 +67,7 @@ export function BrandSwitcher({
                   <p className="truncate text-sm font-medium">{brand.name}</p>
                   <p className="text-xs capitalize text-muted-foreground">{brand.userRole}</p>
                 </div>
-                {brand.id === currentBrandId && <Check className="h-4 w-4" aria-label="Selected" />}
+                {brand.id === displayedId && <Check className="h-4 w-4" aria-label="Selected" />}
               </DropdownMenu.Item>
             ))}
             {!readOnly && <>
